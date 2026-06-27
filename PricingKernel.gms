@@ -27,3 +27,13 @@ priceKernel(tickSpacingDomain,tick) =
 * The /2 is the sqrt; * 2^96 is the Q64.96 fixed-point scaling the EVM uses.
 * `**` (real power) is required because tick/2 is half-integer for odd ticks;
 * `power()` only accepts integer exponents.
+
+
+* tunablePricingKernel(s,t,e): generalization of priceKernel where the fixed sqrt
+* weight 1/2 is replaced by a tunable weight e. e is the dimensionless elasticity
+* eta = eta_x_y/unity from TradingRegion (poolLiquidityCone weights inventory with
+* the same eta_x_y/unity). e = 1/2 is the balanced 50/50 pool and recovers
+* priceKernel exactly (the EVM getSqrtPriceAtTick); e <> 1/2 gives a weighted,
+* asymmetric bonding curve. Implemented as a $macro so it takes eta as an argument
+* without PricingKernel depending on TradingRegion (whose `inventory` set clashes).
+$macro tunablePricingKernel(s, t, e) ( (lambda / unity) ** (tickVal(t) * tickSpacingVal(s) * (e)) * power(2, 96) )
