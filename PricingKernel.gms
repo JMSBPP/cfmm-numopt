@@ -19,7 +19,11 @@ tickVal(tick) = ord(tick) - 121;
 
 Parameter priceKernel(tickSpacingDomain,tick);
 priceKernel(tickSpacingDomain,tick) =
-    power(lambda / unity, tickVal(tick/2) * tickSpacingVal(tickSpacingDomain));
+    (lambda / unity) ** (tickVal(tick) * tickSpacingVal(tickSpacingDomain) / 2)
+    * power(2, 96);
 
 
-// priceKernel (x) == getSqrtPriceAtTick()
+* priceKernel(x) == getSqrtPriceAtTick(x): EVM Q64.96 sqrt price = 1.0001^(tick/2) * 2^96.
+* The /2 is the sqrt; * 2^96 is the Q64.96 fixed-point scaling the EVM uses.
+* `**` (real power) is required because tick/2 is half-integer for odd ticks;
+* `power()` only accepts integer exponents.
