@@ -31,6 +31,59 @@ This is we need to prove:
 
 becuase I think the multiplicative approach can have riskss iof falling out the 1/2 algebra
 
+### Proven — `lean/exp/eta.lean` :: `CFMM.Eta.eta_split_kernel_identity`
+
+The kernel-level claim above is **machine-verified** by Aristotle
+(run `db7bdefd-6122-408f-8879-086e5a55a82a`,
+[dashboard](https://aristotle.harmonic.fun/projects/160ce65d-9e86-4bd3-a59b-527b02fa896f)).
+Witnesses (both depending on \(\eta\)):
+
+\[
+	\begin{aligned}
+		i_{-}(\eta) \, &= \, \lfloor \eta \, i \rfloor , \qquad
+		i_{+}(\eta) \, = \, i \, - \, i_{-}(\eta)
+	\end{aligned}
+\]
+
+Sum equals \(i\) by construction (lemma `tickSplit_sum`), so the identity
+reduces to the exponent law
+\(\lambda^{a \Delta_i} \cdot \lambda^{b \Delta_i} = \lambda^{(a+b) \Delta_i}\).
+The accepted Lean proof:
+
+```lean
+theorem eta_split_kernel_identity ... := by
+  unfold P_half
+  rw [← Real.rpow_add hlam]
+  congr 1
+  have hi2 : (i : ℝ) = (tickSplit_minus η i : ℝ) + (tickSplit_plus η i : ℝ) := by
+    rw [← Int.cast_add, tickSplit_sum]
+  rw [hi2]
+  ring
+```
+
+`#print axioms eta_split_kernel_identity` returns only `propext`,
+`Classical.choice`, `Quot.sound` (no `sorryAx`). Aristotle's note: the
+`IsInt24` bounds and the \(\eta \in (0,1)\) constraints are **not**
+load-bearing for the algebraic identity — they only guard that the
+witnesses fit in Int24; the kernel identity itself holds for any real
+\(\eta\) and any integer \(i\).
+
+**Reproduce** (one-shot, ~35 min on Aristotle):
+
+```bash
+# set ARISTOTLE_API_KEY in your shell first (do NOT paste inline)
+cd lean4-spec
+aristotle submit "Discharge the sorry in exp/eta.lean: theorem \
+  eta_split_kernel_identity in namespace CFMM.Eta." \
+  --project-dir ./lean --wait --destination ./lean/.aristotle-out.tar.gz
+```
+
+> Caveat for the broader "stay on ½-algebra" goal: this theorem closes
+> the claim at the **tick-kernel level** (where \(\eta\) does not appear
+> in the price). It does **not** close it at the **price-impact** level —
+> the η-impact involves the exponent \(1/(1-\eta)\), which is a separate
+> open theorem.
+
 
 Then the [output](~/cfmms-playground/cfmm-replicationPlank/lib/plankified-univ3/plank/lib/math/sqrt_price_math.plk) following :
 
