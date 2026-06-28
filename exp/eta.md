@@ -29,14 +29,9 @@ This is we need to prove:
 	\end{aligned}
 \]
 
-becuase I think the multiplicative approach can have riskss iof falling out the 1/2 algebra
 
-### Proven — `lean/exp/eta.lean` :: `CFMM.Eta.eta_split_kernel_identity`
+### [Proven — `lean/exp/eta.lean` :: `CFMM.Eta.eta_split_kernel_identity`](https://aristotle.harmonic.fun/projects/160ce65d-9e86-4bd3-a59b-527b02fa896f)
 
-The kernel-level claim above is **machine-verified** by Aristotle
-(run `db7bdefd-6122-408f-8879-086e5a55a82a`,
-[dashboard](https://aristotle.harmonic.fun/projects/160ce65d-9e86-4bd3-a59b-527b02fa896f)).
-Witnesses (both depending on \(\eta\)):
 
 \[
 	\begin{aligned}
@@ -44,29 +39,6 @@ Witnesses (both depending on \(\eta\)):
 		i_{+}(\eta) \, = \, i \, - \, i_{-}(\eta)
 	\end{aligned}
 \]
-
-Sum equals \(i\) by construction (lemma `tickSplit_sum`), so the identity
-reduces to the exponent law
-\(\lambda^{a \Delta_i} \cdot \lambda^{b \Delta_i} = \lambda^{(a+b) \Delta_i}\).
-The accepted Lean proof:
-
-```lean
-theorem eta_split_kernel_identity ... := by
-  unfold P_half
-  rw [← Real.rpow_add hlam]
-  congr 1
-  have hi2 : (i : ℝ) = (tickSplit_minus η i : ℝ) + (tickSplit_plus η i : ℝ) := by
-    rw [← Int.cast_add, tickSplit_sum]
-  rw [hi2]
-  ring
-```
-
-`#print axioms eta_split_kernel_identity` returns only `propext`,
-`Classical.choice`, `Quot.sound` (no `sorryAx`). Aristotle's note: the
-`IsInt24` bounds and the \(\eta \in (0,1)\) constraints are **not**
-load-bearing for the algebraic identity — they only guard that the
-witnesses fit in Int24; the kernel identity itself holds for any real
-\(\eta\) and any integer \(i\).
 
 **Reproduce** (one-shot, ~35 min on Aristotle):
 
@@ -77,12 +49,6 @@ aristotle submit "Discharge the sorry in exp/eta.lean: theorem \
   eta_split_kernel_identity in namespace CFMM.Eta." \
   --project-dir ./lean --wait --destination ./lean/.aristotle-out.tar.gz
 ```
-
-> Caveat for the broader "stay on ½-algebra" goal: this theorem closes
-> the claim at the **tick-kernel level** (where \(\eta\) does not appear
-> in the price). It does **not** close it at the **price-impact** level —
-> the η-impact involves the exponent \(1/(1-\eta)\), which is a separate
-> open theorem.
 
 
 Then the [output](~/cfmms-playground/cfmm-replicationPlank/lib/plankified-univ3/plank/lib/math/sqrt_price_math.plk) following :
@@ -97,56 +63,43 @@ const getAmount1DeltaUnsigned = fn (sqrtRatioAX96: u256, sqrtRatioBX96: u256, li
 	\end{aligned}
 \]
 
-Pinning the local price to \(P_X(i)\) on the \(\eta\)-CES curve gives each tick's reserves
-(the one place \(\eta\) enters):
-
-\[
-	\begin{aligned}
-		x(i;\eta) \, &= \, L(i) \, \Big(\tfrac{\eta}{1-\eta}\Big)^{1-\eta} \, P_X(i)^{-(1-\eta)} \\
-		y(i;\eta) \, &= \, L(i) \, \Big(\tfrac{1-\eta}{\eta}\Big)^{\eta} \, P_X(i)^{\eta}
-	\end{aligned}
-\]
-
-Both payoffs factor through one \(\eta\)-weighted liquidity–price aggregate over the span:
-
-\[
-	\begin{aligned}
-		S(\eta) \, &= \, \sum_{i=i_l}^{i_u} \ell(i) \, P_X(i)^{\eta}
-				   \, = \, \sum_{i=i_l}^{i_u} \ell(i) \, \lambda^{\, \eta \, i \, \Delta_i}
-	\end{aligned}
-\]
-
 
 ## TRADER
 
-Consider a trader who always enter a fixed amount of input \(\Delta^I\) which is known to span a tick range 
-\(i_l, i_u\). The trader sells \(X\) for \(Y\) (\(\Delta^I = \Delta X\)), valued in \(Y\).
-
-We define the trader payoff as the total \(Y\) released by the crossed ticks:
 
 \[
 	\begin{aligned}
-		\pi^{\text{trader}}(\eta) \, &= \, \sum_{i=i_l}^{i_u} y(i;\eta)
-		\, = \, \Big(\tfrac{1-\eta}{\eta}\Big)^{\eta} \, \bar L \, S(\eta) ,
-		\qquad \text{s.t. } \sum_{i=i_l}^{i_u} x(i;\eta) = \Delta^I
+		\pi_{\eta}^{\text{trader}}(\cdot) \, &= \, d (P_{\eta} \, (i) \, \Delta^I\, , \, \Delta^O \, (P_{\eta} \, (\Delta^I), \Delta^I; i) ) \propto \sigma 
 	\end{aligned}
 \]
 
+The [(\1/2\)-pricing kernel](~/cfmms-playground/cfmm-replicationPlank/lib/plankified-univ3/plank/lib/math/sqrt_price_math.plk) gives a price impact function implemented as `getNextSqrtPriceFromAmount0RoundingUp` given pool liquidity \(\bar L\)
 
-## LP
+Working out the explicit design with $f(x) = x^{1/(1-\eta)}$ and σ(η) = δ·P^η. Showing each piece before I touch the file.
 
-Consider an LP who has fixed liquidity \(\bar L\) which is fixed at spans \(i_u, i_l\).
+##  Trader (long-vol, convex in input)
 
-We define the LP payoff as the mark-to-market inventory value in \(Y\),
-\(\sum_i \big[y(i;\eta) + P_X(i)\, x(i;\eta)\big]\):
+$$\pi_\eta^{\text{trader}} = d \big(P_\eta(i)\cdot \Delta^I,\ \Delta^O\big)$$
+
+###  CES LONG PAYOFF
+$$\pi_\eta^{\text{trader}} \;=\; (P_\eta(i)\Delta^I)^{\frac{1}{1-\eta}} - (\Delta^O)^{\frac{1}{1-\eta}} - \frac{1}{1-\eta}\,(\Delta^O)^{\frac{\eta}{1-\eta}}\big(P_\eta(i)\Delta^I - \Delta^O\big)$$
+
+For \(η = 1/2\) 
+ $\pi_{1/2}^{\text{trader}} = \big(P_{1/2}(i)\Delta^I - \Delta^O\big)^2$ 
+
+
+$$\pi_\eta^{\text{trader}} \;\propto\; (\Delta^O - P_\eta(i)\Delta^I)^{1/(1-\eta)} \cdot (\text{coeff in }\eta) \;\propto\; \sigma(\eta) \cdot (\text{size factor})$$
+
+
+###  CES SHORT PAYOFF
+
+If:
+$$\pi^{\text{lp}}(\eta) \;=\; \frac{1}{\sigma(\eta,\cdot)} \;=\; \frac{1}{\delta}\,P_\eta(i)^{-\eta}$$
+
+For \(η = 1/2\) 
 
 \[
 	\begin{aligned}
-		\pi^{\text{lp}}(\eta) \, &= \, c(\eta) \, \bar L \, S(\eta) ,
-		\qquad c(\eta) = \Big(\tfrac{1-\eta}{\eta}\Big)^{\eta} + \Big(\tfrac{\eta}{1-\eta}\Big)^{1-\eta}
+		\pi^{\text{lp}}_{1/2} \propto P^{-1/2} = 1/\sqrt{P}
 	\end{aligned}
-\]
-
-> Common parameter. Both payoffs are scalar \(\eta\)-functions times the same
-> \(\bar L \, S(\eta)\). At \(\eta = \tfrac12\) (constant product) \(c=2\) and the trader
-> prefactor is \(1\), so \(\pi^{\text{lp}} = 2\,\pi^{\text{trader}}\).
+\]	
