@@ -4,14 +4,7 @@ $title Price-impact kernel GDX fixture (priceImpact(s,t,dxD) in Q64.96 + provena
 * because compile-gams must syntax-check it; test-gams must NOT execute it.
 
 $include PricingKernel.gms
-
-Scalar Lbar; Lbar = unity;
-
-Set       dxD       / small, medium, large /;
-Parameter dxVal(dxD);
-dxVal('small')  = Lbar / 1000;
-dxVal('medium') = Lbar /   10;
-dxVal('large')  = Lbar;
+$include _PriceImpactKernelInputs.gms
 
 * Literal singleton declared locally so the GDX domain on `priceImpact` is
 * reported as `s`, not the parent `tickSpacingDomain`. We index priceKernel
@@ -28,6 +21,10 @@ Scalar gamsVersion / 54.1 /;
 Scalar etaWeight   / 0.5  /;
 Scalar lambdaVal;  lambdaVal = lambda / unity;
 
+* Determinism note: re-running this fixture produces the SAME schema (symbols,
+* records, values within IEEE) but DIFFERENT bytes — GAMS embeds a build
+* timestamp in the GDX header. Diffs against the committed GDX will show
+* "Binary files differ" even when content is unchanged. See spec §6.
 execute_unload 'price_impact_kernel.gdx',
     priceImpact, Lbar, dxVal,
     gamsVersion, etaWeight, lambdaVal;

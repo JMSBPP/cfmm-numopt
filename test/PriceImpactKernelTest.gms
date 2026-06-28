@@ -3,9 +3,7 @@ $title Price-impact kernel: assertion-only properties for priceImpactKernel_Add0
 * the Solidity test on the gamsdiff peer's track. Spec: §7.
 
 $include PricingKernel.gms
-
-Scalar Lbar; Lbar = unity;
-* Lbar = unity = 1e18 = WAD; matches the fixture (spec §D4)
+$include _PriceImpactKernelInputs.gms
 
 * --- Property 1 (spec §7-1): zero-input no-op ---------------------------------
 * For every (s, t), priceImpactKernel_Add0(priceKernel(s,t), Lbar, 0) == priceKernel(s,t)
@@ -34,13 +32,6 @@ display "PASS: zero-input no-op (max rel err)", maxNoOpRel;
 * For every (s, t): priceImpact at small > medium > large. Economically: selling
 * more token0 strictly depresses the post-trade sqrtPX96. Counts every (s,t)
 * where the strict ordering is violated; abort if any violation exists.
-Set       dxD       / small, medium, large /;
-Parameter dxVal(dxD);
-* dxVal scale: small = 1e15, medium = 1e17, large = 1e18
-dxVal('small')  = Lbar / 1000;
-dxVal('medium') = Lbar /   10;
-dxVal('large')  = Lbar;
-
 Parameter pi(tickSpacingDomain, tick, dxD);
 pi(tickSpacingDomain, tick, dxD) =
     priceImpactKernel_Add0(priceKernel(tickSpacingDomain, tick), Lbar, dxVal(dxD));
@@ -70,4 +61,5 @@ Scalar evmRelErr; evmRelErr = abs(macroVal - evmRef) / evmRef;
 abort$(evmRelErr > 1e-12)
     "FAIL: priceImpactKernel_Add0 disagrees with independent EVM-formula reproduction",
     macroVal, evmRef, evmRelErr;
+option decimals = 8;
 display "PASS: EVM-formula cross-validation at (k121, medium) — relErr:", evmRelErr;
