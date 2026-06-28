@@ -1,3 +1,7 @@
+# ARCHITECTURE
+
+
+
 # AGENTS
 
 Shared discrete setup over the tick span \(i \in \{i_l, \dots, i_u\}\) with spacing
