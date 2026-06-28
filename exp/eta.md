@@ -7,9 +7,30 @@
 Shared discrete setup over the tick span \(i \in \{i_l, \dots, i_u\}\) with spacing
 \(\Delta_i\), reusing the spec layer:
 
-- pricing kernel \(P_X(i) = \lambda^{\, i \, \Delta_i}\) (price of \(X\) in \(Y\));
+- pricing kernel \(P_{1/2}(i) = \lambda^{\, i \, \Delta_i}\) (price of \(X\) in \(Y\));
 - per-tick liquidity \(L(i) = \bar L \, \ell(i)\), with \(\ell(i)\) the liquidity kernel weight;
 - elasticity \(\eta \in (0,1)\), the trading-function exponent \(L = X^{\eta} Y^{1-\eta}\).
+
+The [(\1/2\)-pricing kernel](~/cfmms-playground/cfmm-replicationPlank/lib/plankified-univ3/plank/lib/math/sqrt_price_math.plk) gives a price impact function implemented as `getNextSqrtPriceFromAmount0RoundingUp` given pool liquidity \(\bar L\)
+
+
+\[
+	\begin{aligned}
+		P_{1/2} \, (\Delta^I) \, &= \, \frac{\bar L}{\bar L + \Delta^I \,P_{1/2}(i)}
+	\end{aligned}
+\]
+
+If we were to implement a generic \(\eta - \) price impact funcion, we need the \(\eta - \) pricing kernel  to stay on the \(1/2 - \) kernel:
+
+This is we need to prove: 
+\[
+	\begin{aligned}
+		\exists_{i_{-}, i_{+} \, \text{Ticks}} \quad \,  P_{\eta} \, (i) \ \, = P_{1/2} \, (i_{-}) \, P_{1/2} \, (i_{+}) = P_{1/2} \, (i)
+	\end{aligned}
+\]
+
+becuase I think the multiplicative approach can have riskss iof falling out the 1/2 algebra
+
 
 Pinning the local price to \(P_X(i)\) on the \(\eta\)-CES curve gives each tick's reserves
 (the one place \(\eta\) enters):
