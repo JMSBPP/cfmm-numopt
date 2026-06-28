@@ -15,7 +15,16 @@ Parameter noOpDelta(tickSpacingDomain, tick);
 noOpDelta(tickSpacingDomain, tick) =
     abs( priceImpactKernel_Add0(priceKernel(tickSpacingDomain, tick), Lbar, 0)
          - priceKernel(tickSpacingDomain, tick) );
-Scalar maxNoOp; maxNoOp = smax((tickSpacingDomain, tick), noOpDelta(tickSpacingDomain, tick));
-* Allow for floating-point precision loss: tolerance is 1e14 (absolute error from double precision multiply/divide)
-abort$(maxNoOp > 1e14) "FAIL: priceImpactKernel_Add0(P,L,0) must exactly equal P", maxNoOp;
-display "PASS: zero-input no-op (max abs delta)", maxNoOp;
+* IEEE doubles do not preserve (L*P)/L == P exactly when P is not a power of 2
+* (the multiplication rounds, the division can't always recover the exact bits).
+* The algebraic "exactly" claim in spec §7-1 holds symbolically, not in IEEE.
+* So we assert agreement at the spec §D9 committed tolerance (1e-12 relative),
+* the same value Property 3 uses — keeps both properties on one rigor.
+Parameter noOpRelErr(tickSpacingDomain, tick);
+noOpRelErr(tickSpacingDomain, tick) =
+    noOpDelta(tickSpacingDomain, tick) / priceKernel(tickSpacingDomain, tick);
+Scalar maxNoOpRel;
+maxNoOpRel = smax((tickSpacingDomain, tick), noOpRelErr(tickSpacingDomain, tick));
+abort$(maxNoOpRel > 1e-12)
+    "FAIL: priceImpactKernel_Add0(P,L,0) deviates from P beyond 1e-12 relative", maxNoOpRel;
+display "PASS: zero-input no-op (max rel err)", maxNoOpRel;
