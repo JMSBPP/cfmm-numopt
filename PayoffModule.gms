@@ -1,4 +1,4 @@
-$title PayoffModule orchestrator — $include the per-theorem subset the driver wants.
+$title PayoffModule orchestrator
 $eolcom #
 # Per-theorem files $include _PayoffScaffolding.gms themselves (include-guarded).
 $include payoff/eta_pi_trader_zero_slippage.gms
