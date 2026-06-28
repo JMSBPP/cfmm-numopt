@@ -16,7 +16,7 @@ The [(\1/2\)-pricing kernel](~/cfmms-playground/cfmm-replicationPlank/lib/planki
 
 \[
 	\begin{aligned}
-		P_{1/2} \, (\Delta^I) \, &= \, \frac{\bar L}{\bar L + \Delta^I \,P_{1/2}(i)}
+		P_{1/2} \, (\Delta^I) \, &= \, \frac{\bar L \, P_{1/2}(i)}{\bar L + \Delta^I \,P_{1/2}(i)}
 	\end{aligned}
 \]
 
@@ -31,6 +31,18 @@ This is we need to prove:
 
 becuase I think the multiplicative approach can have riskss iof falling out the 1/2 algebra
 
+
+Then the [output](~/cfmms-playground/cfmm-replicationPlank/lib/plankified-univ3/plank/lib/math/sqrt_price_math.plk) following :
+
+```
+const getAmount1DeltaUnsigned = fn (sqrtRatioAX96: u256, sqrtRatioBX96: u256, liquidity: u256, roundUp: bool) u256
+```
+
+\[
+	\begin{aligned}
+		\Delta^O \, (P_{\eta} \, (\Delta^I), \Delta^I; i) \, &= \, \bar L \, \big( P_{\eta} \, (i) \, - \, P_{\eta} \, (\Delta^I) \big)
+	\end{aligned}
+\]
 
 Pinning the local price to \(P_X(i)\) on the \(\eta\)-CES curve gives each tick's reserves
 (the one place \(\eta\) enters):
