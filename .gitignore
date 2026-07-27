@@ -1,0 +1,36 @@
+# GAMS generated artifacts.
+# Unanchored on purpose: GAMS writes listings and scratch to the
+# *invocation* working directory, not beside the source file. The monorepo
+# anchored these under model/** and leaked PayoffModule.lst into the root.
+*.lst
+*.g00
+*.lxi
+*.log
+*.put
+
+# GAMS numbered scratch dirs (225a/, 225b/, ... beside the invocation)
+[0-9][0-9][0-9]*/
+
+# GAMS scratch control files (land in scrdir)
+gamscntr.dat
+gamsinst.dat
+gamsmatr.dat
+gamssolu.dat
+gamsstat.dat
+gamsnext.sh
+gmsprmun.dat
+
+# make output tree (compile-gams, test-gams, payoff-fixtures, spec-preflight*)
+model/build/
+
+# GDX: ignored by default; committed reference fixtures allowlisted.
+# Negations MUST follow the *.gdx rule or they are inert.
+*.gdx
+!model/price_impact_kernel.gdx
+!model/payoff_zero_slippage.gdx
+!model/payoff_band_monotone_large.gdx
+
+# Environment / editor / OS
+.env
+*.swp
+.DS_Store

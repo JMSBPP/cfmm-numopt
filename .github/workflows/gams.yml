@@ -1,0 +1,46 @@
+name: gams
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+concurrency:
+  group: gams-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+
+jobs:
+  # SECURITY GATE — do not remove.
+  # This is a PUBLIC repository whose build runs on a SELF-HOSTED runner
+  # (GAMS 54.1 + CONOPT are installed there, not on hosted runners). Without
+  # this gate, a fork PR would execute arbitrary code on that machine.
+  #
+  # `environment:` is the ONLY approval mechanism that blocks BEFORE untrusted
+  # code is checked out. It runs on a hosted runner so it needs no toolchain and
+  # does not occupy the self-hosted executor. Configure the `gams-gate`
+  # environment with required reviewers in repo Settings -> Environments.
+  approve:
+    runs-on: ubuntu-latest
+    environment: gams-gate
+    timeout-minutes: 5
+    steps:
+      - run: echo "approved — the self-hosted GAMS job may start"
+
+  gams:
+    needs: [approve]
+    runs-on: [self-hosted, cfmm-build]
+    timeout-minutes: 15
+    env:
+      GIT_TERMINAL_PROMPT: "0"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # lean4-spec is only needed by spec-preflight-band, which is a
+          # developer-machine target. Skip it here to keep checkout cheap.
+          submodules: false
+          persist-credentials: false
+      - name: compile every .gms (action=c)
+        run: make compile-gams
+      - name: run assertion units (action=ce — needs CONOPT for the NLP solves)
+        run: make test-gams
