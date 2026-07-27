@@ -118,10 +118,14 @@ instance and an on-chain prediction.
 - **Known debt inherited at split time**, all recorded rather than silently fixed:
   the Cycle-2 spec's §7 still encodes the removed `$include`-aggregator; `model/BUILD.md`
   is stale (claims no `Model`/`Solve` exists — two CONOPT NLPs do — and calls
-  `PayoffModule.gms` an empty stub); `PricingKernelMoments.gms` is an invalid stub
-  (`Set TimeWindow` with no elements or terminator, two zero-argument macros);
-  `tickPerPriceKernel` has unbalanced parentheses and calls a two-argument
-  `log(base, x)` that GAMS does not provide.
+  `PayoffModule.gms` an empty stub); `tickPerPriceKernel` has unbalanced parentheses
+  and calls a two-argument `log(base, x)` that GAMS does not provide.
+- **`PricingKernelMoments.gms` is a silent no-op, not a broken file.** It compiles
+  cleanly (`rc=0`) and `make compile-gams` counts it as OK: `Set TimeWindow` is legally
+  closed by EOF, and the space before `(` makes GAMS read a zero-argument *text* macro
+  rather than a two-argument one. So CI is green on a file that computes nothing. This
+  is more dangerous than a syntax error, which would have reddened the build and been
+  noticed immediately.
 - **GAMS has one global symbol namespace.** This is the dominant architectural
   constraint. Per-theorem files reuse names deliberately because each theorem is a
   different numerical fixture, so they are never aggregated into one compilation unit.
