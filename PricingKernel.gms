@@ -1,5 +1,12 @@
 $include primitives.gms
 
+* int24 tick bounds (EVM storage width of a Uniswap tick).
+* NOTE: these are the int24 *type* bounds, NOT Uniswap's usable tick range
+* (MIN_TICK = -887272, MAX_TICK = 887272). MIN_TICK here is also -(2^23-1),
+* not the true two's-complement -(2^23) = -8388608. Both are open questions.
+Scalar ZERO_TICK /0/;
+Scalar MAX_TICK /8388607/;
+Scalar MIN_TICK /-8388607/;
 
 Scalar lambda /1000100000000000000/;
 
@@ -8,7 +15,9 @@ Set tick "ticks from -120 to 120" / k1*k241 /;
 
 
 Scalar tickSpacing /1/;
+* todo: Does this map to a domain of 1 to 200 on 1 step increments
 Set tickSpacingDomain /s1*s60/;
+
 Parameter tickSpacingVal(tickSpacingDomain);
 tickSpacingVal(tickSpacingDomain) = ord(tickSpacingDomain);
 
@@ -29,18 +38,18 @@ priceKernel(tickSpacingDomain,tick) =
 * `power()` only accepts integer exponents.
 
 
-* tunablePricingKernel(s,t,e): generalization of priceKernel where the fixed sqrt
-* weight 1/2 is replaced by a tunable weight e. e is the dimensionless elasticity
-* eta = eta_x_y/unity from TradingRegion (poolLiquidityCone weights inventory with
-* the same eta_x_y/unity). e = 1/2 is the balanced 50/50 pool and recovers
-* priceKernel exactly (the EVM getSqrtPriceAtTick); e <> 1/2 gives a weighted,
+* tunablePricingKernel(di,i,eta): generalization of priceKernel where the fixed sqrt
+* weight 1/2 is replaced by a tunable weight eta. eta is the dimensionless elasticity
+* eta_x_y/unity from TradingRegion (poolLiquidityCone weights inventory with
+* the same eta_x_y/unity). eta = 1/2 is the balanced 50/50 pool and recovers
+* priceKernel exactly (the EVM getSqrtPriceAtTick); eta <> 1/2 gives a weighted,
 * asymmetric bonding curve. Implemented as a $macro so it takes eta as an argument
 * without PricingKernel depending on TradingRegion (whose `inventory` set clashes).
-$macro tunablePricingKernel(s, t, e) ( (lambda / unity) ** (tickVal(t) * tickSpacingVal(s) * (e)) * power(2, 96) )
+$macro tunablePricingKernel(di, i, eta) ( (lambda / unity) ** (tickVal(i) * tickSpacingVal(di) * (eta)) * power(2, 96) )
 
 
 * priceImpactKernel_Add0(sqrtP, L, dx): post-trade sqrt price (Q64.96) for the
-* η = 1/2 kernel, selling token0 for token1 (Uniswap V3 add=true direction).
+* eta = 1/2 kernel, selling token0 for token1 (Uniswap V3 add=true direction).
 * Mirrors v3::math::sqrt_price_math::getNextSqrtPriceFromAmount0RoundingUp(P, L, dx, true)
 * exposed by PriceImpactKernelHarness.plk.
 *
@@ -61,8 +70,17 @@ $macro tunablePricingKernel(s, t, e) ( (lambda / unity) ** (tickVal(t) * tickSpa
 * `_Add1` (token1-input) and a potential `_Sub0/_Sub1` (add=false branch) will
 * share the `priceImpactKernel_` prefix.
 *
-* TODO(eta-CES): a tunable-η post-trade form is reachable via the lean4-spec
+* TODO(eta-CES): a tunable-eta post-trade form is reachable via the lean4-spec
 * kernel-split identity (CFMM.Eta.eta_split_kernel_identity, see
-* lean4-spec/lean/exp/eta.lean), but blocked on an η-CES post-trade EVM
+* lean4-spec/lean/exp/eta.lean), but blocked on an eta-CES post-trade EVM
 * function existing to diff against.
 $macro priceImpactKernel_Add0(sqrtP, L, dx) ( (L) * (sqrtP) / ( (L) + (dx) * (sqrtP) / power(2, 96) ) )
+
+
+* WIP (uncommitted, DO NOT USE YET): tickPerPriceKernel — intended inverse of
+* priceKernel (recover a tick from an observed sqrt price). Two defects block it:
+*   1. Unbalanced parentheses — the macro body never closes.
+*   2. GAMS has no two-argument `log(base, x)`; use log(x)/log(base) instead.
+* Expanding this macro at any call site is a compile error. Left verbatim so the
+* intent survives; to be specified properly in the moments/ingestion phase.
+$macro tickPerPriceKernel(i, priceKernel, dt) (log(lambda, power(priceKernel,dt))
