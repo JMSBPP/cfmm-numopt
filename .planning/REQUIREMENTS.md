@@ -53,13 +53,15 @@ The repo's current green is substantially uninformative. Nothing else can be tru
 ### Data & Moments
 
 - [ ] **DATA-01**: ingestion happens through `execute_loadDC`, and the model compiles at `action=c` with no data file present. `$gdxIn` on a missing file is a hard compile error (rc=2), which would redden `compile-gams` on every machine.
-- [ ] **DATA-02**: a model-owned static capacity grid (`tAll`) carries loaded membership (`tObs(tAll)`), with `ord()` and lag applied only to the parent. Execution-time loads cannot introduce new labels — a bare set silently yields `card=0` at rc=0.
-- [ ] **DATA-03**: windowed `mean_tick` and `realized_variance` are computed with explicit boundary handling; the first window has one fewer return.
+- [ ] **DATA-02**: a model-owned static capacity grid (`tAll`) carries loaded membership (`tObs(tAll)`), with `ord()` and lag applied only to the parent. Execution-time loads cannot introduce new labels — a bare set silently yields `card=0` at rc=0. `tObs` loads **E3's emitted `timestamp` field** (what the σ² kernel consumed), never the block timestamp (contract §3).
+- [ ] **DATA-03**: windowed `mean_tick` and `realized_variance` are computed with explicit boundary handling; the first window has one fewer return. **The window `W` is NOT constant** — it is stored per market and arrives from the E6 `WindowChanged` history, so σ² reconstruction is `(volCum(t) − volCum(t−W)) / W` with `W` looked up per series and per time (contract §4).
 - [ ] **DATA-04**: only linear lag is used; circular `--` is banned — it fabricates a return by wrapping first→last.
 - [ ] **DATA-05**: the internal consistency identity `RV_log = (log λ)²·RV_tick` is asserted (measured to hold at `4.01e-13`).
-- [ ] **DATA-06**: ingested series carry numeric provenance (a `seriesIdHash`); free-text labels cannot survive an execution-time load.
-- [ ] **DATA-07**: `rv_bar` normalization makes realized variance comparable across windows of differing cardinality.
-- [ ] **DATA-08**: a documented data contract separates the expected symbol names and domains from the producer, so fabricated, simulated, and API-sourced series all satisfy one interface.
+- [ ] **DATA-06**: series provenance is `seriesIdHash = uint48(keccak256(abi.encode(chainId, emitter, poolId)))`, computed identically producer- and consumer-side. **uint48, not uint256** — `uint48 < 2^53` survives an IEEE-double load losslessly, where a 256-bit hash silently loses ~200 bits. `poolId = 0` is a **permanent** module-global sentinel series, never a placeholder that later mutates (contract §2).
+- [ ] **DATA-07**: `rv_bar` normalization makes realized variance comparable across windows of differing cardinality and differing `W`.
+- [ ] **DATA-08**: the consumer half of the data contract — expected symbol names and domains — matching the producer's §4 field→symbol→scale table. Raw on-chain scales arrive; all conversion (Q96→dimensionless ξ, pips, tick²·s vol units) is consumer-side.
+- [ ] **DATA-09**: loader integrity rules are enforced, not assumed: E5↔`Swap` joins on same-tx + same-poolId + nearest-preceding `logIndex` with `FeeApplied.fee == Swap.fee` asserted on every joined pair (never poolId alone); σ²_K (E1) rows stay **unjoined** to any pool series until E2 exists — no fabricated linkage.
+- [ ] **DATA-10**: a fabricated-series fixture proves the interface **before any subgraph exists**, demonstrating that fabricated, simulated, and API-sourced series all satisfy one contract.
 
 ### Volatility Instruments Port
 
@@ -78,6 +80,23 @@ Dependency-ordered over the proven `vol_markets` closure. Each requires its depe
 ### Coordinate Identification (conditional)
 
 - [ ] **IDENT-01**: if and only if SOLVE-06 shows the degeneracy breaks, `(Δᵢ, η)` coordinates are recovered and asserted away from γ=0. If it does not break, this requirement is closed as invalidated and the product remains the deliverable.
+
+## External Dependencies
+
+Tracked because they gate v1 items and are owned by another workstream.
+
+| Dependency | State | Gates |
+|---|---|---|
+| Producer data contract `notes/DATA_CONTRACT.md` @ `d34846c` | **Stable but NOT merged to develop** — lives on `feat/plank` only | All DATA items. Pin to the sha; re-verify on merge in case the branch rebases. |
+| E1 `VolOrderCreated`, E3 `TimepointWritten`, E4 `FeeConfigurationChanged`, E6 `WindowChanged` | LIVE, topic0 pinned | DATA-02/03/05/07 are buildable now against these |
+| E2 `PortafolioMinted` (ξ⋆, ι, L̄, tokenId) | **SPEC-ONLY** — owed by plank task #14 | `Lbar`/`xiVal` symbols; the σ²_K↔pool linkage in DATA-09 |
+| E5 `FeeApplied` (σ, φ) | **SPEC-ONLY** — owed by plank task #16 | The fee/σ series and the DATA-09 join rule |
+| `gams-gate` GitHub environment | Not created | All CI |
+
+**Cross-cutting note:** DATA-06's `uint48` rule is a *representation* decision, not a data
+decision — it exists for exactly the reason REPR-01 forbids `$eval` and REPR-06 forbids
+`= INF` guards: GAMS carries a 53-bit mantissa. It is listed under DATA to match the
+producer contract's numbering, but it is enforced by the Phase-1 representation kernel.
 
 ## v2 Requirements
 
@@ -105,9 +124,9 @@ Populated during roadmap creation.
 | (pending roadmapper) | — | Pending |
 
 **Coverage:**
-- v1 requirements: 45 total
+- v1 requirements: 47 total
 - Mapped to phases: 0 ⚠️
-- Unmapped: 45 ⚠️
+- Unmapped: 47 ⚠️
 
 ---
 *Requirements defined: 2026-07-28*
