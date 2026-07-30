@@ -76,6 +76,7 @@ which overstated the blast radius.
 - [ ] **DATA-08**: the consumer half of the data contract — expected symbol names and domains — matching the producer's §4 field→symbol→scale table, **pinned to `cfmm-replicationPlank@d34846c`** and re-verified when `feat/plank` merges to `develop`. Raw on-chain scales arrive; all conversion (Q96→dimensionless ξ, pips, tick²·s vol units) is consumer-side. Enforced by REPR-09 for any identifier crossing the boundary.
 - [ ] **DATA-09**: loader integrity rules are enforced, not assumed: E5↔`Swap` joins on same-tx + same-poolId + nearest-preceding `logIndex` with `FeeApplied.fee == Swap.fee` asserted on every joined pair (never poolId alone); σ²_K (E1) rows stay **unjoined** to any pool series until E2 exists — no fabricated linkage.
 - [ ] **DATA-10**: a fabricated-series fixture proves the interface **before any subgraph exists**, demonstrating that fabricated, simulated, and API-sourced series all satisfy one contract.
+- [ ] **DATA-11**: **the fee-config and strike parameters are ingested, not just the tick series.** E4 `FeeConfigurationChanged` → Θ_φ = {α₁, α₂, β₁, β₂, γ₁, γ₂, φ̄} and E1 `VolOrderCreated`.strike → σ²_K land in named GAMS symbols per contract §4, with the scales left raw (pips for α/φ̄, Algebra vol units tick²·s for β/γ/σ²_K) and converted consumer-side. Both events are **LIVE with topic0 pinned**, yet before this requirement nothing in the plan consumed either: `DATA-01…10` covered only the E3/E6 tick-and-window series, so `VOL-07`'s 24 theorems would have been ported against parameters that had a producer and no ingestion path. Feeds VOL-07 via VOL-0B.
 
 ### Volatility Instruments Port
 
@@ -84,15 +85,19 @@ Dependency-ordered over the proven `vol_markets` closure. Each requires its depe
 - [ ] **VOL-00**: **epistemic tiers are declared and counted separately.** Every assertion is tagged `THEOREM` (mirrors a proven Lean statement), `BRIDGE` (a GAMS-established link with **no** Lean counterpart), or `INFERENCE` (needs hypotheses the theorem does not carry). Green counts report the tiers separately and never sum them into one number. This exists because `vol_markets` is import-disjoint from `exp/`: the pricing-kernel↔volatility link does not exist in the formalization and is being *established* in GAMS, so those assertions are strictly weaker evidence than the ported theorems and must not be presented as equivalent.
 - [ ] **VOL-0A**: before the port opens, the **B5 split test** is run across ten randomly chosen theorems of the 134 — for each, read the Lean statement and determine whether the intended GAMS assertion is the theorem's conclusion or something stronger. The one theorem examined so far (`riskNeutral_corner`, SOLVE-04) failed this test. Half a day, and it determines whether the port's green means anything.
 
-- [ ] **VOL-01**: `PosSpec` (12 theorems) — no dependencies
-- [ ] **VOL-02**: `Main` (7) — no dependencies
-- [ ] **VOL-03**: `Flow` (12) — depends on PosSpec
-- [ ] **VOL-04**: `RiskDesign` (21) — depends on Main, Flow
-- [ ] **VOL-05**: `GeomProfile` (11) — depends on Flow
-- [ ] **VOL-06**: `Panoptic` (8) — depends on PosSpec, Flow
-- [ ] **VOL-07**: `FeeSchedule` (24) — depends on RiskDesign
-- [ ] **VOL-08**: `Upsilon` (3) — depends on PosSpec, Flow, Panoptic
-- [ ] **VOL-09**: `VolInstrument` (36) — depends on Panoptic, Upsilon, GeomProfile, FeeSchedule
+- [ ] **VOL-0B**: **every ported module declares its parameter provenance.** Each `VOL-nn` states, before its port begins, which producer field feeds each parameter — an E-number and a §4 row — or explicitly declares `none (pure theorem, symbolic parameters only)`. A lint reddens any ported module with an undeclared parameter. This exists because the port was specified purely by Lean module and theorem count, which let a **LIVE** producer event sit unconsumed: E4 `FeeConfigurationChanged` appeared exactly once in the entire plan, as a dependency-table row, with no requirement ingesting it. Declaring provenance makes that gap impossible to repeat across the remaining modules.
+
+Provenance below is filled in only where the producer contract states it **explicitly**. The rest are TBD and resolved by VOL-0B during phase planning rather than guessed here.
+
+- [ ] **VOL-01**: `PosSpec` (12 theorems) — no module deps. Parameters: TBD (VOL-0B)
+- [ ] **VOL-02**: `Main` (7) — no module deps. Parameters: TBD (VOL-0B)
+- [ ] **VOL-03**: `Flow` (12) — depends on PosSpec. Parameters: TBD (VOL-0B)
+- [ ] **VOL-04**: `RiskDesign` (21) — depends on Main, Flow. Parameters: TBD (VOL-0B)
+- [ ] **VOL-05**: `GeomProfile` (11) — depends on Flow. Parameters: TBD (VOL-0B); if ξ⋆ is consumed it arrives via E2 `PortafolioMinted` (**SPEC-ONLY**)
+- [ ] **VOL-06**: `Panoptic` (8) — depends on PosSpec, Flow. Parameters: TBD (VOL-0B); `tokenId` decoding is subgraph-side per contract §6
+- [ ] **VOL-07**: `FeeSchedule` (24) — depends on RiskDesign. **Parameters: Θ_φ = {α₁,α₂,β₁,β₂,γ₁,γ₂,φ̄} from E4 `FeeConfigurationChanged` (LIVE), plus σ²_K from E1.strike — §4 names `FeeSchedule.Params.volStrike` as the analog.** Consumes DATA-11.
+- [ ] **VOL-08**: `Upsilon` (3) — depends on PosSpec, Flow, Panoptic. **Parameters: realized variance from the DATA-03 moments layer** — the contract's υ-identification / econometric path. Consumes DATA-03 and DATA-07.
+- [ ] **VOL-09**: `VolInstrument` (36) — depends on Panoptic, Upsilon, GeomProfile, FeeSchedule. Parameters inherited from its four dependencies; σ²_K rows stay **unjoined** to any pool series until E2 exists (DATA-09)
 
 ### Coordinate Identification (conditional)
 
@@ -108,7 +113,8 @@ Tracked because they gate v1 items and are owned by another workstream.
 | E1 `VolOrderCreated`, E3 `TimepointWritten`, E4 `FeeConfigurationChanged`, E6 `WindowChanged` | LIVE, topic0 pinned | DATA-02/03/05/07 are buildable now against these |
 | E2 `PortafolioMinted` (ξ⋆, ι, L̄, tokenId) | **SPEC-ONLY** — owed by plank task #14 | `Lbar`/`xiVal` symbols; the σ²_K↔pool linkage in DATA-09 |
 | E5 `FeeApplied` (σ, φ) | **SPEC-ONLY** — owed by plank task #16 | The fee/σ series and the DATA-09 join rule |
-| `gams-gate` GitHub environment | Not created | All CI |
+| **The indexer** — the component that reads on-chain logs by `topic0` and emits the GDX this model loads | **UNOWNED AND UNBUILT.** No phase, requirement, or workstream claims it; `topic0` appears nowhere in this plan | Any use of *real* data. v1 is unblocked because DATA-10 proves the interface on a fabricated series, but until an owner exists the solver is fed by hand. Raised as an open question — the producer contract's authors would know whether it is scoped to their track, a new track, or nobody. |
+| `gams-gate` GitHub environment | **Exists** (auto-created 2026-07-27 by the first workflow run) but with **0 protection rules**; **0 runners** registered | GATE-06. Add the required reviewers *before* registering a runner — a public repo with a self-hosted runner behind an inert gate is the fork-PR execution scenario |
 
 **Cross-cutting note:** DATA-06's `uint48` rule is a *representation* decision, not a data
 decision — it exists for exactly the reason REPR-01 forbids `$eval` and REPR-06 forbids
@@ -134,73 +140,99 @@ producer contract's numbering, but it is enforced by the Phase-1 representation 
 
 ## Traceability
 
-Populated during roadmap creation (2026-07-30). Every v1 requirement maps to
-**exactly one** phase. Notes record cross-phase consumers, which are not second
-mappings.
+Rebuilt during roadmap revision (rev 2, 2026-07-30) after the two-step review.
+Every v1 requirement maps to **exactly one** phase. Notes record cross-phase
+consumers, which are not second mappings.
 
 | Requirement | Phase | Status | Note |
 |-------------|-------|--------|------|
 | GATE-01 | Phase 0 — Honest gates | Pending |  |
 | GATE-02 | Phase 0 — Honest gates | Pending |  |
-| GATE-03 | Phase 0 — Honest gates | Pending | Minimal inline form here; reusable `assertModelOptimal` macro is a Phase 2 TEST-01 deliverable |
-| GATE-04 | Phase 0 — Honest gates | Pending |  |
-| GATE-05 | Phase 0 — Honest gates | Pending | Built in Phase 0; first genuinely exercised by Phase 1's fixture re-baseline |
-| REPR-01 | Phase 1 — Representation kernel | Pending |  |
-| REPR-02 | Phase 1 — Representation kernel | Pending |  |
-| REPR-03 | Phase 1 — Representation kernel | Pending |  |
-| REPR-04 | Phase 1 — Representation kernel | Pending |  |
-| REPR-05 | Phase 1 — Representation kernel | Pending |  |
-| REPR-06 | Phase 1 — Representation kernel | Pending |  |
-| REPR-07 | Phase 1 — Representation kernel | Pending |  |
-| REPR-08 | Phase 1 — Representation kernel | Pending |  |
-| REPR-09 | Phase 1 — Representation kernel | Pending | First plan of Phase 1 (REPR-01/REPR-06 are its corollaries); consumed by DATA-06; enforced via Phase 0's lint harness |
-| TEST-01 | Phase 2 — Test architecture | Pending |  |
+| GATE-03 | Phase 0 — Honest gates | Pending | `solveStat` is the gap; `modelStat` is already asserted by both existing `Solve`s. Reusable `assertModelOptimal` macro is a Phase 2 TEST-01 deliverable |
+| GATE-04 | Phase 0 — Honest gates | Pending | `$onCheckErrorLevel` covers `$call` only — `execute` needs its own rule |
+| GATE-05 | Phase 0 — Honest gates | Pending | Scoped to the two producible payoff fixtures; `price_impact_kernel.gdx` has no producer (fund one or record as unversioned). First genuinely exercised by Phase 1's re-baseline |
+| GATE-06 | Phase 0 — Honest gates | Pending | Protection rules BEFORE runner registration. The completed-workflow-run leg is one-shot; the two `gh api` probes are the standing gate |
+| GATE-07 | Phase 0 — Honest gates | Pending | Phase 5 criterion 4 is a claim about this artifact, so it must exist first. Note `make spec-preflight` runs no Lean grep at all today |
+| TEST-09 | Phase 0 — Honest gates | Pending | Moved to Phase 0 (not Phase 2): Phase 0's own criteria are stated against `make negative-controls`, so it cannot come later than its first consumer |
+| REPR-01 | Phase 1 — Representation kernel + spine | Pending |  |
+| REPR-02 | Phase 1 — Representation kernel + spine | Pending |  |
+| REPR-03 | Phase 1 — Representation kernel + spine | Pending |  |
+| REPR-04 | Phase 1 — Representation kernel + spine | Pending |  |
+| REPR-05 | Phase 1 — Representation kernel + spine | Pending | Δᵢ=200 reachability is what makes `riskNeutral_corner`'s corner expressible for SOLVE-04a |
+| REPR-06 | Phase 1 — Representation kernel + spine | Pending | Two regimes, two committed controls: loud (`a*a` at 1e299, rc=3) and silent (`power(10,400)`, rc=0) |
+| REPR-07 | Phase 1 — Representation kernel + spine | Pending | **BLOCKED on cfmm-gams#1.** If unanswered, record both candidate readings + an `abort$` on undeclared assumption — do not guess |
+| REPR-08 | Phase 1 — Representation kernel + spine | Pending | Enforced by mutation proof (TEST-09 registry in Phase 1, TEST-08 lint from Phase 2) — the read-existence lint is already gamed |
+| REPR-09 | Phase 1 — Representation kernel + spine | Pending | First plan of Phase 1 (REPR-01/REPR-06 are its corollaries); consumed by DATA-06; enforced via Phase 0's `rules.tsv` |
+| REPR-10 | Phase 1 — Representation kernel + spine | Pending | **The Core Value made executable.** Three legs: 181-point grid comparison (immediate), `TickMathReplica.gms` (independent of `lambda`), retirement of the comment-only and tautological bridges. Tolerance retrofitted onto `kernelTol(n)` in Phase 2 |
+| REPR-11 | Phase 1 — Representation kernel + spine | Pending | `assertAdd0Branch` restored to the TEST-01 macro list |
+| TEST-01 | Phase 2 — Test architecture | Pending | Macro list includes `assertAdd0Branch` (REPR-11) |
 | TEST-02 | Phase 2 — Test architecture | Pending |  |
-| TEST-03 | Phase 2 — Test architecture | Pending |  |
-| TEST-04 | Phase 2 — Test architecture | Pending |  |
-| TEST-05 | Phase 2 — Test architecture | Pending |  |
-| TEST-06 | Phase 2 — Test architecture | Pending |  |
+| TEST-03 | Phase 2 — Test architecture | Pending | Proof mutant: the measured residual 1.73334e-33 scaled by 1e6 still passes under `zeroTolerance`, must redden under `absFloor` |
+| TEST-04 | Phase 2 — Test architecture | Pending | `registry.tsv`, one entry per line, append-only (M7) |
+| TEST-05 | Phase 2 — Test architecture | Pending | 'green with CONOPT absent' is uncheckable — replaced by a no-`Solve`-in-pure-tier lint plus a nonexistent-solver fixture exercising the reason string |
+| TEST-06 | Phase 2 — Test architecture | Pending | gdxdiff rc table recorded (0/1/2/3); `rc != 0` kept as the conservative predicate, conflation noted |
 | TEST-07 | Phase 2 — Test architecture | Pending |  |
-| SOLVE-01 | Phase 3 — The (Delta_i, eta) solve | Pending |  |
+| TEST-08 | Phase 2 — Test architecture | Pending | Applied retroactively to every existing `abort$` in this phase, so the rule is proven on ~12 assertions before 134 units inherit it. Subsumes REPR-08's enforcement |
+| VOL-00 | Phase 2 — Test architecture | Pending | Moved to Phase 2 (not Phase 5): the tier column is assertion vocabulary, and SOLVE-04a/04b consume it in Phase 3 before the port opens |
+| SOLVE-01 | Phase 3 — The (Delta_i, eta) solve | Pending | No speedup claim: the 14× figure was measured over 200 solves and does not transfer to a 4-element menu. No demo-license size assert — it could never fire |
 | SOLVE-02 | Phase 3 — The (Delta_i, eta) solve | Pending |  |
 | SOLVE-03 | Phase 3 — The (Delta_i, eta) solve | Pending |  |
-| SOLVE-04 | Phase 3 — The (Delta_i, eta) solve | Pending |  |
-| SOLVE-05 | Phase 3 — The (Delta_i, eta) solve | Pending | Scoping PROVISIONAL under the constant-`w` assumption (v2 WSTATE-01) |
+| SOLVE-04a | Phase 3 — The (Delta_i, eta) solve | Pending | THEOREM tier — value only, at ≥1e-9 relative, after `objScale` |
+| SOLVE-04b | Phase 3 — The (Delta_i, eta) solve | Pending | INFERENCE tier — separate unit, explicit `θ.b > 0` guard, tag lint + guard-removal mutant |
+| SOLVE-05 | Phase 3 — The (Delta_i, eta) solve | Pending | Scoping PROVISIONAL under the constant-`w` premise, now enforced by `make check-wstate` (v2 WSTATE-01) |
 | SOLVE-06 | Phase 3 — The (Delta_i, eta) solve | Pending | Exports the machine-readable `degeneracyBreaks` verdict that gates Phase 8 and orders Phase 6 |
 | SOLVE-07 | Phase 3 — The (Delta_i, eta) solve | Pending |  |
-| DATA-01 | Phase 4 — Moments / ingestion | Pending |  |
+| DATA-01 | Phase 4 — Moments / ingestion | Pending | Three legs: `action=c` rc=0 is a NECESSARY CONDITION ONLY (an empty file passes it); `action=ce` with data absent must fail with a named diagnostic; `action=ce` on the fabricated fixture must pass with `card(tObs)>0` and non-degenerate `rv_bar` |
 | DATA-02 | Phase 4 — Moments / ingestion | Pending |  |
-| DATA-03 | Phase 4 — Moments / ingestion | Pending |  |
+| DATA-03 | Phase 4 — Moments / ingestion | Pending | `W` is per-market and time-varying, from E6 `WindowChanged` |
 | DATA-04 | Phase 4 — Moments / ingestion | Pending |  |
 | DATA-05 | Phase 4 — Moments / ingestion | Pending |  |
 | DATA-06 | Phase 4 — Moments / ingestion | Pending | Enforced by REPR-09 (Phase 1); listed under DATA to match producer contract numbering |
 | DATA-07 | Phase 4 — Moments / ingestion | Pending |  |
-| DATA-08 | Phase 4 — Moments / ingestion | Pending | Pinned to `cfmm-replicationPlank@d34846c`; re-verify on `feat/plank` -> `develop` merge |
+| DATA-08 | Phase 4 — Moments / ingestion | Pending | Pinned to `cfmm-replicationPlank@d34846c`, enforced by `make check-datapin`; re-verify on `feat/plank` -> `develop` |
 | DATA-09 | Phase 4 — Moments / ingestion | Pending | Exercised against DATA-10's fabricated fixture; must NOT depend on E2/E5 data existing |
-| DATA-10 | Phase 4 — Moments / ingestion | Pending |  |
-| VOL-01 | Phase 5 — Port foundation | Pending |  |
-| VOL-02 | Phase 5 — Port foundation | Pending |  |
-| VOL-03 | Phase 5 — Port foundation | Pending | Graph articulation point (out-degree 4) - the bridge-design gate |
+| DATA-10 | Phase 4 — Moments / ingestion | Pending | The fixture that makes legs (2) and (3) of DATA-01 checkable |
+| VOL-0A | Phase 5 — Port foundation | Pending | **Gates the port.** First plan; seeded reproducible sample; ≥3/10 INFERENCE re-cuts the phase's scope. The verdict per theorem is a human reading — UNVERIFIABLE-LEG, declared |
+| VOL-01 | Phase 5 — Port foundation | Pending | Imports only Mathlib — no Phase 3/4 dependency |
+| VOL-02 | Phase 5 — Port foundation | Pending | Imports only Mathlib — no Phase 3/4 dependency |
+| VOL-03 | Phase 5 — Port foundation | Pending | Graph articulation point (out-degree 4); imports only PosSpec. Bridge DESIGN precedes it in the same phase (M5) |
 | VOL-04 | Phase 6 — Instrument mechanics | Pending |  |
 | VOL-05 | Phase 6 — Instrument mechanics | Pending |  |
 | VOL-06 | Phase 6 — Instrument mechanics | Pending |  |
 | VOL-07 | Phase 6 — Instrument mechanics | Pending |  |
-| VOL-08 | Phase 6 — Instrument mechanics | Pending | Cross-phase hook: consumes Phase 4 moments; plan order routed by SOLVE-06's verdict |
-| VOL-09 | Phase 7 — VolInstrument | Pending | In-degree-4 convergence node; demo-license ceiling becomes a hard wall here |
-| IDENT-01 | Phase 8 — Coordinate identification (CONDITIONAL) | Pending | CONDITIONAL - opens iff SOLVE-06 records `degeneracyBreaks = 1`; otherwise closed as INVALIDATED |
+| VOL-08 | Phase 6 — Instrument mechanics | Pending | Cross-phase hook: consumes Phase 4 moments through `_MomentsContract.gms` (rename-mutant must redden); plan order routed by SOLVE-06's recorded verdict |
+| VOL-09 | Phase 7 — VolInstrument | Pending | In-degree-4 convergence node, verified from imports. The demo-license 'hard wall' rationale is STRUCK — it is vacuous |
+| IDENT-01 | Phase 8 — Coordinate identification (CONDITIONAL) | Pending | Opens iff SOLVE-06 records `degeneracyBreaks = 1`; otherwise closed as INVALIDATED. INFERENCE tier if opened |
 
 **Coverage:**
-- v1 requirements: **57 total** (was 48; +9 from the two-step review)
-- Mapped to phases: **0 ⚠️ — traceability INVALIDATED by the review, pending roadmap revision**
-- Unmapped: **57 ⚠️**
+- v1 requirements: **59 total** (48 → 57 from the two-step review, → 59 closing the E4/E1 ingestion gap)
+- Mapped to phases: **0 ⚠️ — traceability INVALIDATED, pending roadmap re-revision**
+- Unmapped: **59 ⚠️**
+- Duplicates: **0** (each requirement appears in exactly one row)
 
-New since review: GATE-06 (CI reachability), GATE-07 (namespaced Lean sorry-gate),
-REPR-10 (independent EVM replica — the Core Value made executable), REPR-11
-(priceImpactKernel_Add0 second branch), TEST-08 (mutation proof per abort$),
-TEST-09 (committed negative controls), VOL-00 (epistemic tiers), VOL-0A (B5 split
-test), and SOLVE-04 split into 04a THEOREM / 04b INFERENCE.
+| Phase | Count |
+|-------|-------|
+| Phase 0 — Honest gates | 8 |
+| Phase 1 — Representation kernel + spine | 11 |
+| Phase 2 — Test architecture | 9 |
+| Phase 3 — The (Delta_i, eta) solve | 8 |
+| Phase 4 — Moments / ingestion | 10 |
+| Phase 5 — Port foundation | 4 |
+| Phase 6 — Instrument mechanics | 5 |
+| Phase 7 — VolInstrument | 1 |
+| Phase 8 — Coordinate identification (CONDITIONAL) | 1 |
+| **Total** | **57** |
 
+**Placement of the nine requirements added by the review:** GATE-06 and GATE-07 -> Phase 0
+(a gate nothing can reach, and a gate that matches zero of its 134 targets, are both
+gates that cannot fail). REPR-10 and REPR-11 -> Phase 1 (REPR-10 *is* the representation
+question; a branch that is absent rather than untested is a representation gap).
+TEST-09 -> **Phase 0**, ahead of TEST-08, because Phase 0 states its own criteria against
+`make negative-controls`. TEST-08 -> Phase 2, applied retroactively there. VOL-00 -> **Phase 2**,
+not Phase 5, because the registry tier column is assertion vocabulary and SOLVE-04a/04b
+consume tiers in Phase 3. VOL-0A -> Phase 5 as its first, port-gating plan. SOLVE-04a/04b
+-> Phase 3, since the split is itself the requirement.
 
 ---
 *Requirements defined: 2026-07-28*
-*Traceability populated: 2026-07-30*
+*Traceability rebuilt: 2026-07-30 (rev 2)*
