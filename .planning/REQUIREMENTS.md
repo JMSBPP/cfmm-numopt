@@ -29,6 +29,7 @@ The repo's current green is substantially uninformative. Nothing else can be tru
 - [ ] **REPR-06**: overflow and non-finite guards key on magnitude, never on `= INF`. Overflow does not produce `INF`, does not raise, and continues at rc=0.
 - [ ] **REPR-07**: `LbarQ128` and `DICfgQ128` are reconciled against their intended on-chain width. Two committed fixtures export `2^128` — exactly one greater than `uint128` max.
 - [ ] **REPR-08**: every exported provenance scalar is read by the code that claims it, or removed. `etaQ128` and `tieBreaking` are currently exported but no assignment reads them.
+- [ ] **REPR-09**: **the 53-bit rule** — any integer identifier, hash, or exact-valued quantity crossing into a GAMS numeric must fit in `2^53`, and the kernel states this once as a shared constraint rather than re-deriving it per call site. This is the general form of the rule that forces `seriesIdHash` to `uint48` (DATA-06), forbids `$eval` for scale constants (REPR-01), and makes `= INF` guards useless (REPR-06). Anything wider is silently truncated with no diagnostic.
 
 ### Test Architecture
 
@@ -59,7 +60,7 @@ The repo's current green is substantially uninformative. Nothing else can be tru
 - [ ] **DATA-05**: the internal consistency identity `RV_log = (log λ)²·RV_tick` is asserted (measured to hold at `4.01e-13`).
 - [ ] **DATA-06**: series provenance is `seriesIdHash = uint48(keccak256(abi.encode(chainId, emitter, poolId)))`, computed identically producer- and consumer-side. **uint48, not uint256** — `uint48 < 2^53` survives an IEEE-double load losslessly, where a 256-bit hash silently loses ~200 bits. `poolId = 0` is a **permanent** module-global sentinel series, never a placeholder that later mutates (contract §2).
 - [ ] **DATA-07**: `rv_bar` normalization makes realized variance comparable across windows of differing cardinality and differing `W`.
-- [ ] **DATA-08**: the consumer half of the data contract — expected symbol names and domains — matching the producer's §4 field→symbol→scale table. Raw on-chain scales arrive; all conversion (Q96→dimensionless ξ, pips, tick²·s vol units) is consumer-side.
+- [ ] **DATA-08**: the consumer half of the data contract — expected symbol names and domains — matching the producer's §4 field→symbol→scale table, **pinned to `cfmm-replicationPlank@d34846c`** and re-verified when `feat/plank` merges to `develop`. Raw on-chain scales arrive; all conversion (Q96→dimensionless ξ, pips, tick²·s vol units) is consumer-side. Enforced by REPR-09 for any identifier crossing the boundary.
 - [ ] **DATA-09**: loader integrity rules are enforced, not assumed: E5↔`Swap` joins on same-tx + same-poolId + nearest-preceding `logIndex` with `FeeApplied.fee == Swap.fee` asserted on every joined pair (never poolId alone); σ²_K (E1) rows stay **unjoined** to any pool series until E2 exists — no fabricated linkage.
 - [ ] **DATA-10**: a fabricated-series fixture proves the interface **before any subgraph exists**, demonstrating that fabricated, simulated, and API-sourced series all satisfy one contract.
 
@@ -124,9 +125,9 @@ Populated during roadmap creation.
 | (pending roadmapper) | — | Pending |
 
 **Coverage:**
-- v1 requirements: 47 total
+- v1 requirements: 48 total
 - Mapped to phases: 0 ⚠️
-- Unmapped: 47 ⚠️
+- Unmapped: 48 ⚠️
 
 ---
 *Requirements defined: 2026-07-28*
