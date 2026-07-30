@@ -97,7 +97,28 @@ Provenance below is filled in only where the producer contract states it **expli
 - [ ] **VOL-06**: `Panoptic` (8) — depends on PosSpec, Flow. Parameters: TBD (VOL-0B); `tokenId` decoding is subgraph-side per contract §6
 - [ ] **VOL-07**: `FeeSchedule` (24) — depends on RiskDesign. **Parameters: Θ_φ = {α₁,α₂,β₁,β₂,γ₁,γ₂,φ̄} from E4 `FeeConfigurationChanged` (LIVE), plus σ²_K from E1.strike — §4 names `FeeSchedule.Params.volStrike` as the analog.** Consumes DATA-11.
 - [ ] **VOL-08**: `Upsilon` (3) — depends on PosSpec, Flow, Panoptic. **Parameters: realized variance from the DATA-03 moments layer** — the contract's υ-identification / econometric path. Consumes DATA-03 and DATA-07.
+- [ ] **VOL-10**: `FlairOptimization` (15 theorems, **0 sorry**) — depends on VolInstrument. **Promoted from v2**: this is the module carrying the solved programs the PROG-* requirements formulate (`flairMulti_le_corner`, `flairMulti_corner_attained_levels`, `flairMulti_saturation_limit`, `flairMulti_strict_below_saturation`, `flairMulti_exists_max_compact`, `Theta_lambda_identification`), cited by name at VOLATILITY_INSTRUMENTS.md:459. Parameters: Θ_λ = {φ̄, α, u} level block + (β, γ) shape block.
 - [ ] **VOL-09**: `VolInstrument` (36) — depends on Panoptic, Upsilon, GeomProfile, FeeSchedule. Parameters inherited from its four dependencies; σ²_K rows stay **unjoined** to any pool series until E2 exists (DATA-09)
+
+### Convex Programs — what GAMS is actually for
+
+The GAMS layer **solves** the convex programs implied by `VOLATILITY_INSTRUMENTS.md`, which the
+lean4-spec layer formalizes and the Plank layer implements on-chain. The representation kernel
+(REPR-*) is not a parallel track — it is the **substrate that makes a solved parameter
+EVM-expressible**, which is why `PricingKernel` was architected the way it was. A solution the
+Plank layer cannot represent is not a solution.
+
+**Non-degenerate first.** Every program below is scoped to a case where the extremum is
+*attained*. Cases where it is not are asserted as limits, never solved, and revisited as the
+lean4-spec worktree constrains the problems further.
+
+- [ ] **PROG-00**: **each program declares a non-degeneracy certificate before it is solved** — the compactness, strict-convexity, or corner-attainment fact that makes its extremum exist — citing the Lean theorem that supplies it. A program with no certificate is not solved; it is asserted as a limit and deferred. This is the standing rule that stops a solver reporting a bound as an optimum.
+- [ ] **PROG-01**: **M5 — the infimum program on λ_ARB**, solved over a nonempty compact parameter box, where the doc states a minimizer exists and its value strictly exceeds the displayed bound. Certificate: existence on a compact box.
+- [ ] **PROG-02**: **M6a level block — solved.** For a fixed shape block, the λ_FLAIR maximizer and the λ_ARB minimizer are the **same corner** in `(φ̄, α, u)`, attained bang-bang. Certificate: `FlairOptimization.flairMulti_corner_attained_levels` + `flairMulti_le_corner`.
+- [ ] **PROG-03**: **M6a shape block — asserted, NOT solved.** Over unbounded `(β, γ)` the bound is approached only as `β → −∞`, with a strict gap at every finite β: a **saturation boundary, not a maximum** (`Theta_lambda_identification`, `flairMulti_saturation_limit`, `flairMulti_strict_below_saturation`). A naive NLP will drive β to a bound and report that bound as the optimum, so this block is encoded as a limit assertion plus a guard that **reddens if any solver returns a shape-block bound as a solution**. Deferred for solving until lean4-spec constrains it.
+- [ ] **PROG-04**: **M6b — the constrained program.** Among all fee paths with the same FLAIR income, the **flat** path minimizes λ_ARB, and any path non-constant on the positive-weight steps is strictly worse. Certificate: M1's **strict** convexity of λ_ARB in φ — the doc records that strictness deliberately because M6b's strict half is exactly where it is consumed.
+- [ ] **PROG-05**: **solved parameters are EVM-expressible.** Every solution lands in the representation kernel's declared scales and bounds (REPR-01/03/05/09) and round-trips through them without loss — pips for φ̄ and α, Algebra vol units for β and γ, the int24 tick range, the 53-bit ceiling. A solution outside what Plank can represent **fails** the program; it is not rounded into range.
+- [ ] **PROG-06**: **the monotonicity structure is asserted, not assumed.** For `γ_j > 0`, λ_ARB is antitone in φ̄, in each α_j and in u; isotone in each β_j; and convex in the fee. These are the signs a solver's marginals must reproduce, and they are the cheapest available check that a solve is not silently wrong.
 
 ### Coordinate Identification (conditional)
 
@@ -123,7 +144,7 @@ producer contract's numbering, but it is enforced by the Phase-1 representation 
 
 ## v2 Requirements
 
-- **FLAIR-01**: port `vol_markets/FlairOptimization.lean` (15 theorems) — imports *from* `VolInstrument`, so it sits downstream of the v1 closure
+- ~~**FLAIR-01**~~ — **PROMOTED TO v1 as VOL-10.** The import-graph argument (it imports *from* `VolInstrument`, so it is downstream) was topologically right and functionally backwards: `FlairOptimization` is where the solved programs actually live. Downstream in imports does not mean lower priority when the deliverable is solving.
 - **SORRY-01**: the `exp/` modules carrying a `sorry` (`eta.lean`, `BondingCurveCurvature`, `DynamicsOptimization`) once proven
 - **SUBMOD-01**: monorepo submodule wiring at `gams/`, pending gamsdiff and CI session sign-off
 - **WSTATE-01**: re-run the degeneracy analysis under a state-dependent η̃-measure `w` — every experiment used a constant `w`
@@ -140,7 +161,7 @@ producer contract's numbering, but it is enforced by the Phase-1 representation 
 
 ## Traceability
 
-Rebuilt during roadmap revision (rev 2, 2026-07-30) after the two-step review.
+Rebuilt during roadmap revision (**rev 3**, 2026-07-30) after the E4/E1 coverage gap.
 Every v1 requirement maps to **exactly one** phase. Notes record cross-phase
 consumers, which are not second mappings.
 
@@ -151,7 +172,7 @@ consumers, which are not second mappings.
 | GATE-03 | Phase 0 — Honest gates | Pending | `solveStat` is the gap; `modelStat` is already asserted by both existing `Solve`s. Reusable `assertModelOptimal` macro is a Phase 2 TEST-01 deliverable |
 | GATE-04 | Phase 0 — Honest gates | Pending | `$onCheckErrorLevel` covers `$call` only — `execute` needs its own rule |
 | GATE-05 | Phase 0 — Honest gates | Pending | Scoped to the two producible payoff fixtures; `price_impact_kernel.gdx` has no producer (fund one or record as unversioned). First genuinely exercised by Phase 1's re-baseline |
-| GATE-06 | Phase 0 — Honest gates | Pending | Protection rules BEFORE runner registration. The completed-workflow-run leg is one-shot; the two `gh api` probes are the standing gate |
+| GATE-06 | Phase 0 — Honest gates | Pending | The environment already EXISTS (auto-created 2026-07-27 by the first workflow run) with 0 rules and 0 runners — the work is configuring, not creating. Protection rules BEFORE runner registration. The completed-workflow-run leg is one-shot; the two `gh api` probes are the standing gate |
 | GATE-07 | Phase 0 — Honest gates | Pending | Phase 5 criterion 4 is a claim about this artifact, so it must exist first. Note `make spec-preflight` runs no Lean grep at all today |
 | TEST-09 | Phase 0 — Honest gates | Pending | Moved to Phase 0 (not Phase 2): Phase 0's own criteria are stated against `make negative-controls`, so it cannot come later than its first consumer |
 | REPR-01 | Phase 1 — Representation kernel + spine | Pending |  |
@@ -168,12 +189,13 @@ consumers, which are not second mappings.
 | TEST-01 | Phase 2 — Test architecture | Pending | Macro list includes `assertAdd0Branch` (REPR-11) |
 | TEST-02 | Phase 2 — Test architecture | Pending |  |
 | TEST-03 | Phase 2 — Test architecture | Pending | Proof mutant: the measured residual 1.73334e-33 scaled by 1e6 still passes under `zeroTolerance`, must redden under `absFloor` |
-| TEST-04 | Phase 2 — Test architecture | Pending | `registry.tsv`, one entry per line, append-only (M7) |
+| TEST-04 | Phase 2 — Test architecture | Pending | `registry.tsv`, one entry per line, append-only (M7); carries the VOL-00 tier and VOL-0B provenance columns |
 | TEST-05 | Phase 2 — Test architecture | Pending | 'green with CONOPT absent' is uncheckable — replaced by a no-`Solve`-in-pure-tier lint plus a nonexistent-solver fixture exercising the reason string |
 | TEST-06 | Phase 2 — Test architecture | Pending | gdxdiff rc table recorded (0/1/2/3); `rc != 0` kept as the conservative predicate, conflation noted |
 | TEST-07 | Phase 2 — Test architecture | Pending |  |
 | TEST-08 | Phase 2 — Test architecture | Pending | Applied retroactively to every existing `abort$` in this phase, so the rule is proven on ~12 assertions before 134 units inherit it. Subsumes REPR-08's enforcement |
 | VOL-00 | Phase 2 — Test architecture | Pending | Moved to Phase 2 (not Phase 5): the tier column is assertion vocabulary, and SOLVE-04a/04b consume it in Phase 3 before the port opens |
+| VOL-0B | Phase 2 — Test architecture | Pending | **Placed with VOL-00, not VOL-0A** (roadmap judgement call 7): it is `registry.tsv` schema + a standing lint, and its first consumer is Phase 4's DATA-11, not Phase 5. Phase 2 owns the mechanism; the per-module declarations are made in Phases 4–7 and are consumer relations |
 | SOLVE-01 | Phase 3 — The (Delta_i, eta) solve | Pending | No speedup claim: the 14× figure was measured over 200 solves and does not transfer to a 4-element menu. No demo-license size assert — it could never fire |
 | SOLVE-02 | Phase 3 — The (Delta_i, eta) solve | Pending |  |
 | SOLVE-03 | Phase 3 — The (Delta_i, eta) solve | Pending |  |
@@ -184,55 +206,63 @@ consumers, which are not second mappings.
 | SOLVE-07 | Phase 3 — The (Delta_i, eta) solve | Pending |  |
 | DATA-01 | Phase 4 — Moments / ingestion | Pending | Three legs: `action=c` rc=0 is a NECESSARY CONDITION ONLY (an empty file passes it); `action=ce` with data absent must fail with a named diagnostic; `action=ce` on the fabricated fixture must pass with `card(tObs)>0` and non-degenerate `rv_bar` |
 | DATA-02 | Phase 4 — Moments / ingestion | Pending |  |
-| DATA-03 | Phase 4 — Moments / ingestion | Pending | `W` is per-market and time-varying, from E6 `WindowChanged` |
+| DATA-03 | Phase 4 — Moments / ingestion | Pending | `W` is per-market and time-varying, from E6 `WindowChanged`. Consumed by VOL-08 in Phase 6 — one of the two Phase 4 -> Phase 6 edges |
 | DATA-04 | Phase 4 — Moments / ingestion | Pending |  |
 | DATA-05 | Phase 4 — Moments / ingestion | Pending |  |
 | DATA-06 | Phase 4 — Moments / ingestion | Pending | Enforced by REPR-09 (Phase 1); listed under DATA to match producer contract numbering |
-| DATA-07 | Phase 4 — Moments / ingestion | Pending |  |
+| DATA-07 | Phase 4 — Moments / ingestion | Pending | Consumed by VOL-08 alongside DATA-03 |
 | DATA-08 | Phase 4 — Moments / ingestion | Pending | Pinned to `cfmm-replicationPlank@d34846c`, enforced by `make check-datapin`; re-verify on `feat/plank` -> `develop` |
-| DATA-09 | Phase 4 — Moments / ingestion | Pending | Exercised against DATA-10's fabricated fixture; must NOT depend on E2/E5 data existing |
+| DATA-09 | Phase 4 — Moments / ingestion | Pending | Exercised against DATA-10's fabricated fixture; must NOT depend on E2/E5 data existing. Its σ²_K-unjoined rule also binds DATA-11 and VOL-09 |
 | DATA-10 | Phase 4 — Moments / ingestion | Pending | The fixture that makes legs (2) and (3) of DATA-01 checkable |
+| DATA-11 | Phase 4 — Moments / ingestion | Pending | **Independent ingestion leg — own plan (04-05), NOT sequenced behind DATA-03/05/07.** Shares `execute_loadDC`/capacity grids/`check-datapin` with DATA-01/02/08 only. Acceptance runs on a fabricated E4/E1 fixture; the indexer that would emit real rows is UNOWNED AND UNBUILT. First entry to use VOL-0B's provenance column; feeds VOL-07 — the second Phase 4 -> Phase 6 edge |
 | VOL-0A | Phase 5 — Port foundation | Pending | **Gates the port.** First plan; seeded reproducible sample; ≥3/10 INFERENCE re-cuts the phase's scope. The verdict per theorem is a human reading — UNVERIFIABLE-LEG, declared |
-| VOL-01 | Phase 5 — Port foundation | Pending | Imports only Mathlib — no Phase 3/4 dependency |
-| VOL-02 | Phase 5 — Port foundation | Pending | Imports only Mathlib — no Phase 3/4 dependency |
-| VOL-03 | Phase 5 — Port foundation | Pending | Graph articulation point (out-degree 4); imports only PosSpec. Bridge DESIGN precedes it in the same phase (M5) |
-| VOL-04 | Phase 6 — Instrument mechanics | Pending |  |
-| VOL-05 | Phase 6 — Instrument mechanics | Pending |  |
-| VOL-06 | Phase 6 — Instrument mechanics | Pending |  |
-| VOL-07 | Phase 6 — Instrument mechanics | Pending |  |
-| VOL-08 | Phase 6 — Instrument mechanics | Pending | Cross-phase hook: consumes Phase 4 moments through `_MomentsContract.gms` (rename-mutant must redden); plan order routed by SOLVE-06's recorded verdict |
-| VOL-09 | Phase 7 — VolInstrument | Pending | In-degree-4 convergence node, verified from imports. The demo-license 'hard wall' rationale is STRUCK — it is vacuous |
+| VOL-01 | Phase 5 — Port foundation | Pending | Imports only Mathlib — no Phase 3/4 dependency. Provenance TBD, resolved in-phase by VOL-0B (expected `none (pure theorem)`) |
+| VOL-02 | Phase 5 — Port foundation | Pending | Imports only Mathlib — no Phase 3/4 dependency. Provenance TBD, resolved in-phase by VOL-0B |
+| VOL-03 | Phase 5 — Port foundation | Pending | Graph articulation point (out-degree 4); imports only PosSpec. Bridge DESIGN precedes it in the same phase (M5). Provenance TBD, resolved in-phase |
+| VOL-04 | Phase 6 — Instrument mechanics | Pending | Provenance TBD — must resolve before porting (VOL-0B lint) |
+| VOL-05 | Phase 6 — Instrument mechanics | Pending | Provenance TBD; if ξ⋆ is consumed it arrives via E2 `PortafolioMinted` (**SPEC-ONLY**) — declare it and run on a fabricated fixture, never live data |
+| VOL-06 | Phase 6 — Instrument mechanics | Pending | Provenance TBD; `tokenId` decoding is subgraph-side per contract §6, so GAMS-side provenance is `none` by construction |
+| VOL-07 | Phase 6 — Instrument mechanics | Pending | **Consumes DATA-11** — Θ_φ from E4 (LIVE) + σ²_K from E1.strike (§4 `FeeSchedule.Params.volStrike`). This is the edge that did not exist before rev 3; a committed rename-mutant must redden its units |
+| VOL-08 | Phase 6 — Instrument mechanics | Pending | **Consumes DATA-03 and DATA-07** through `_MomentsContract.gms` (rename-mutant must redden); plan order routed by SOLVE-06's recorded verdict |
+| VOL-09 | Phase 7 — VolInstrument | Pending | In-degree-4 convergence node, verified from imports. Provenance inherited from its four dependencies and re-declared, not assumed. The demo-license 'hard wall' rationale is STRUCK — it is vacuous |
 | IDENT-01 | Phase 8 — Coordinate identification (CONDITIONAL) | Pending | Opens iff SOLVE-06 records `degeneracyBreaks = 1`; otherwise closed as INVALIDATED. INFERENCE tier if opened |
 
 **Coverage:**
-- v1 requirements: **59 total** (48 → 57 from the two-step review, → 59 closing the E4/E1 ingestion gap)
-- Mapped to phases: **0 ⚠️ — traceability INVALIDATED, pending roadmap re-revision**
-- Unmapped: **59 ⚠️**
+- v1 requirements: **67 total** (48 → 57 review → 59 E4 gap → 67 convex programs + FLAIR promotion)
+- Mapped to phases: **0 ⚠️ — traceability INVALIDATED, pending roadmap rev 4**
+- Unmapped: **67 ⚠️**
 - Duplicates: **0** (each requirement appears in exactly one row)
 
 | Phase | Count |
 |-------|-------|
 | Phase 0 — Honest gates | 8 |
 | Phase 1 — Representation kernel + spine | 11 |
-| Phase 2 — Test architecture | 9 |
+| Phase 2 — Test architecture | 10 |
 | Phase 3 — The (Delta_i, eta) solve | 8 |
-| Phase 4 — Moments / ingestion | 10 |
+| Phase 4 — Moments / ingestion | 11 |
 | Phase 5 — Port foundation | 4 |
 | Phase 6 — Instrument mechanics | 5 |
 | Phase 7 — VolInstrument | 1 |
 | Phase 8 — Coordinate identification (CONDITIONAL) | 1 |
-| **Total** | **57** |
+| **Total** | **59** |
 
-**Placement of the nine requirements added by the review:** GATE-06 and GATE-07 -> Phase 0
-(a gate nothing can reach, and a gate that matches zero of its 134 targets, are both
-gates that cannot fail). REPR-10 and REPR-11 -> Phase 1 (REPR-10 *is* the representation
-question; a branch that is absent rather than untested is a representation gap).
-TEST-09 -> **Phase 0**, ahead of TEST-08, because Phase 0 states its own criteria against
-`make negative-controls`. TEST-08 -> Phase 2, applied retroactively there. VOL-00 -> **Phase 2**,
-not Phase 5, because the registry tier column is assertion vocabulary and SOLVE-04a/04b
-consume tiers in Phase 3. VOL-0A -> Phase 5 as its first, port-gating plan. SOLVE-04a/04b
--> Phase 3, since the split is itself the requirement.
+**Placement of the eleven requirements added since the first roadmap** (nine from the
+two-step review, two from the rev-3 coverage gap):
+
+| Requirement | Phase | Why there |
+|---|---|---|
+| GATE-06 | 0 | A gate nothing can reach is the limiting case of a gate that cannot fail |
+| GATE-07 | 0 | Phase 5 criterion 4 is a claim *about* this artifact; it must exist first |
+| REPR-10 | 1 | It *is* the representation question — the Core Value made executable |
+| REPR-11 | 1 | A branch that is absent rather than untested is a representation gap |
+| TEST-08 | 2 | Applied retroactively there, proven on ~12 assertions before 134 inherit it |
+| TEST-09 | **0**, not 2 | Phase 0 states its own criteria against `make negative-controls` |
+| VOL-00 | **2**, not 5 | The tier column is assertion vocabulary; SOLVE-04a/04b consume it in Phase 3 |
+| VOL-0A | 5 | "Before the port opens" — Phase 5's first plan, and it can stop the port |
+| SOLVE-04a / 04b | 3 | The split *is* the requirement; both halves belong to the solve |
+| **DATA-11** | **4** | Same contract and loader as DATA-01/02/08 — but an *independent leg*, own plan (04-05), explicitly not sequenced behind the E3/E6 moments chain |
+| **VOL-0B** | **2**, not 5 | `registry.tsv` schema plus a standing lint, so it belongs with VOL-00; and its first consumer is Phase 4's DATA-11, ahead of the port. See roadmap judgement call 7 |
 
 ---
 *Requirements defined: 2026-07-28*
-*Traceability rebuilt: 2026-07-30 (rev 2)*
+*Traceability rebuilt: 2026-07-30 (rev 3)*
