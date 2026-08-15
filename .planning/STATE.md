@@ -12,11 +12,11 @@ See: .planning/PROJECT.md (updated 2026-07-27)
 ## Current Position
 
 Phase: 0 of 11 (Honest gates)
-Plan: 3 of 4 in current phase (00-01, 00-02, 00-03 complete)
-Status: In progress — GATE-01/02/03/04 met and TEST-09 substrate hardened; 00-04 (GATE-05/06/07) pending
-Last activity: 2026-08-15 — 00-03 executed on `gsd/phase-0-honest-gates`: `make lint-gams` reading the data-file rule table `model/lint/rules.tsv` (LINT-01..07), `solveStat` assertions inserted at BOTH `Solve` sites, 8 new committed mutants, 11 new registry rows (29 total)
+Plan: 4 of 4 in current phase — **AT THE TASK-4 CHECKPOINT** (00-01, 00-02, 00-03 complete; 00-04 tasks 1-3 complete)
+Status: **Awaiting a human action.** GATE-01/02/03/04/05/07 met and TEST-09 substrate hardened. GATE-06 is met on the **protection-rules** leg (a required reviewer was added to `gams-gate` before any runner exists) and **OPEN** on the **runner** leg — registering a self-hosted runner is a `sudo` service install on a PUBLIC repo and was not performed autonomously. `make negative-controls` is RED at exactly one row (`nc-ci-selftest-positive`) **by design**; making it green by editing the expectation is the one outcome this phase exists to prevent.
+Last activity: 2026-08-15 — 00-04 tasks 1-3 executed on `gsd/phase-0-honest-gates`: `make check-fixtures` (gdxdiff 2-arg form, scratch cwd), `model/fixtures/{FIXTURES.tsv,UNVERSIONED.md}` + LINT-08, a namespace/`lemma`-aware `lean_sorry_check.py` wired into BOTH preflight targets, `make ci-selftest` + the `gams-gate` required reviewer. 5 new mutants, 21 new registry rows (50 total). Commits `e749aa5`, `1a272bd`, `86a4373`, `8debace`, `ce0bee2`.
 
-Progress: [█░░░░░░░░░] 6% (3/54 plans; Phase 9 plan count TBD)
+Progress: [█░░░░░░░░░] 6% (3/54 plans complete + 00-04 at its checkpoint; Phase 9 plan count TBD)
 
 ## Performance Metrics
 
@@ -32,10 +32,11 @@ Progress: [█░░░░░░░░░] 6% (3/54 plans; Phase 9 plan count TB
 | Phase 00 P01 | 1 | 6 min (3 tasks, 8 files) | 6 min |
 | Phase 00 P02 | 1 | 11 min (4 tasks, 12 files) | 11 min |
 | Phase 00 P03 | 1 | 12 min (3 tasks + 1 doc repair, 16 files) | 12 min |
+| Phase 00 P04 | 0 (at checkpoint) | 22 min (3 of 4 tasks + 1 doc repair + 1 self-check repair, 21 files) | — |
 
 **Recent Trend:**
-- Last 5 plans: 00-01 (6 min), 00-02 (11 min), 00-03 (12 min)
-- Trend: flat (~10 min/plan). Each wave carries one unplanned task: 00-02 the D1 closure, 00-03 the D1 *rule* applied to its own rows plus a `_mutants/gams` vs `_mutants/gms` doc repair.
+- Last 5 plans: 00-01 (6 min), 00-02 (11 min), 00-03 (12 min), 00-04 (22 min, incomplete — stopped at its checkpoint)
+- Trend: rising with scope (00-04 carried three requirements, five new mutants and a live GitHub API change). Each wave still carries at least one unplanned task: 00-02 the D1 closure, 00-03 the D1 *rule* applied to its own rows plus a doc repair, 00-04 a doc repair **plus a self-check repair of two acceptance criteria that failed when actually run**.
 
 *Updated after each plan completion*
 
@@ -46,6 +47,33 @@ Progress: [█░░░░░░░░░] 6% (3/54 plans; Phase 9 plan count TB
 Full log in PROJECT.md Key Decisions. Decisions taken during roadmapping (later revs
 supersede earlier ones where they differ):
 
+- [Phase 0, plan 00-04]: **`gdxdiff`'s 3-argument form conflates identical with different.**
+  Measured on GAMS 54.1: with the output path on another filesystem it returns **rc=7 for identical
+  AND for different inputs alike**, and litters `tmpdifffileN.gdx` beside the inputs. The 2-argument
+  form is trustworthy — 0 identical, 1 different, 2 no args, 3 missing input — and drops
+  `diffile.gdx` into the *current directory*, so `check-fixtures` runs with cwd in a scratch dir.
+  The rc table is **five** rows, not the roadmap's four. Recorded in `model/test/README-gdxdiff.md`.
+- [Phase 0, plan 00-04]: **GATE-07's defect was the KEYWORD, not the indentation.** `^theorem $ID`
+  missed six `vol_markets` modules outright — FeeSchedule (24), VolInstrument (36), RiskDesign (21),
+  Flow (12), PosSpec (12), GeomProfile (11) declare **zero** `theorem`s; every result is a `lemma`.
+  The indented-theorem count across those files is **0**, so a fix aimed at indentation would have
+  changed nothing. Matching is now EXACT against the bare or fully-qualified name, which is why the
+  truncated id `pi_trader_half_strictly_increasing_in_` correctly returns 2 and
+  `spec-preflight-band`'s list was corrected to the full non-ASCII name.
+- [Phase 0, plan 00-04]: **Where the exact rc distinguishes reddening for the RIGHT reason, bypass
+  `make`.** Through make, `lean_sorry_check.sh`'s 1 (sorry found) and 3 (usage) both surface as
+  make's 2 — the same code as "declaration not found". The GATE-07 rows therefore invoke the script
+  directly with exact codes. It paid off immediately: with `SorryFixture.lean` removed,
+  `nc-lean-sorry-fires` FAILED at rc=**3** against its expected 1, where a `nonzero` row would have
+  passed.
+- [Phase 0, plan 00-04]: **A missing-file mutant only proves a target gates on PRESENCE.** To prove
+  `spec-preflight` gates on the Lean *result*, `model/test/_mutants/lean/` is a drop-in
+  `LEAN4_SPEC_DIR` whose four cited declarations exist, are correctly named, and carry a real
+  `sorry`. `LEAN4_SPEC_DIR=/nonexistent` reddens for the wrong reason — the D1 shape.
+- [Phase 0, plan 00-04]: **A control may be RED on purpose.** `nc-ci-selftest-positive` fails until a
+  self-hosted runner exists, and `README-negative-controls.md` now says so in the repository:
+  deleting the row, changing its `expect`, or commenting it out is the defect this phase exists to
+  remove.
 - [Phase 0, plan 00-03]: **A rule keyed on a MISSING assertion must match inside the assertion's
   CONDITION, not merely find the token nearby.** Measured on the pre-fix tree with the identical
   trigger and 12-line window: partner `(?i)\.solveStat\b` (token anywhere) → **0 violations, rc=0**;
@@ -274,10 +302,30 @@ None yet. (`.planning/todos/pending/` not created)
   row. Repaired by hand and verified by diff. Also `gsd-tools state advance-plan` cannot parse this
   STATE.md ("Cannot parse Current Plan or Total Plans"). **Later plans should update ROADMAP.md and
   STATE.md by hand and diff the result, not trust these two subcommands.**
-- **[Phase 0 — `gams-gate` exists already]** Corrected: the environment was **auto-created
-  2026-07-27 by the first workflow run**, not deliberately, and has **0 protection rules**
-  and **0 runners**. GATE-06's work is *configuring* an environment that is already there.
-  Ordering is load-bearing — protection rules before runner registration.
+- **[Phase 0 — GATE-06 HALF-CLOSED by 00-04, and the open half is a HUMAN ACTION]** The environment
+  was **auto-created 2026-07-27T23:24:41Z by the first workflow run** (same timestamp as run
+  `30314047591`, cancelled after **24h0m12s** waiting for a runner), with 0 protection rules and 0
+  runners. 00-04 added a **required reviewer** (JMSBPP, id 127243770) **before** any runner exists;
+  the ordering is evidenced by the transition — `make ci-selftest` failed on the *rules* leg before
+  and fails on the *runner* leg after, and has never once reported OK. **Still open:** 0 runners.
+  Registering one is a `sudo` service install on the GAMS machine attached to a PUBLIC repo and is
+  the blocking checkpoint of 00-04 task 4. Two honest limits of the new rule, recorded in
+  `.planning/ci-evidence.md` and **not** probed by `ci-selftest`: `prevent_self_review: false` and
+  `can_admins_bypass: true`.
+- **[Phase 0 — GATE-05 CLOSED by 00-04 at its honest scope]** `make check-fixtures` covers exactly
+  the two payoff fixtures with a wired producer, and both regenerate content-identically (gdxdiff
+  rc=0). `model/price_impact_kernel.gdx` is recorded in `model/fixtures/UNVERSIONED.md` as knowingly
+  unversioned per the user's decision. **Correction to the roadmap's own wording:** that file does
+  NOT have "no regeneration path at all" — `model/PriceImpactKernelFixture.gms:28` carries a real
+  `execute_unload` for it. What is absent is a **wiring** into any make target, and funding one was
+  declined. LINT-08 reddens any new `.gdx` declared in neither file.
+- **[Phase 0 — GATE-07 CLOSED by 00-04]** The Lean gate matches `lemma` and any indentation, tracks
+  namespaces, matches ids exactly, does not mis-attribute a later `sorry`, and strips `/- -/` blocks
+  so eta.lean:602's backticked `sorry` — the submodule's ONLY occurrence of the token — does not
+  falsely redden. `spec-preflight`, which performed **no Lean check at all**, now gates on it. The
+  committed `SorryFixture.lean` is the only artifact that can prove the gate fires, and a second
+  drop-in `LEAN4_SPEC_DIR` mutant proves both preflight targets redden on a REJECTED declaration
+  rather than merely on a missing file.
 - **[Phase 0 — GATE-02/03/04 MET by 00-03]** `make lint-gams` reads `model/lint/rules.tsv` and
   reports `16 files, 7 rules, 0 violations`, rc=0. Seven rules, each with a committed mutant proven
   to redden it with its own rule id. The real GATE-03 gap was `solveStat`, not `modelStat`, exactly
@@ -290,19 +338,33 @@ None yet. (`.planning/todos/pending/` not created)
   two codes degrade *together*, which is the direct evidence that the mutant proves the assertion
   PAIR fires and cannot isolate `solveStat`. The UNVERIFIABLE-LEG text is reproduced verbatim in
   `model/lint/rules.tsv` above LINT-06 and in `registry.tsv` above the mutant row. (2)
-  `model/price_impact_kernel.gdx` has **no regeneration path at all**; either a producer is funded
-  in a plan or it is recorded in `model/fixtures/UNVERSIONED.md` as knowingly unversioned.
+  **CLOSED by 00-04:** `model/price_impact_kernel.gdx` is recorded in
+  `model/fixtures/UNVERSIONED.md` as knowingly unversioned with no producer funded. Note the
+  original wording here — "no regeneration path at all" — was itself inaccurate; see the GATE-05
+  entry above.
 - **[Phase 0 — the D1 rule keeps finding new instances]** 00-03's eight `nonzero` negative rows read
   committed mutants, and a **deleted** mutant also exits non-zero (rc=2, "does not exist"), so each
   would have kept passing with its own proof gone. Reproduced with `gms/onmulti.gms` moved away.
   Closed by `nc-lintgams-mutants-present` (presence: 7 files; integrity: all seven `LINT-0[1-7]` ids
   still named), observed to FAIL when violated. **Expect this to recur in every plan that adds
-  negative rows** — it has now occurred in two consecutive waves.
-- **[Phase 0 — three plans, three factual errors in their own acceptance criteria]** 00-01 (rc=1 vs
-  make's 2), 00-02 (the same, three times, plus a mutant that could not fail), 00-03 (a `grep -c`
-  count of 1 against a comment the plan itself mandates, and `26 entries` where 18+10 = 28). None
-  were resolved by weakening the check; each was recorded with the measurement that contradicts it
-  and a stricter substitute. **Planners: derive counts from the tree, not from memory.**
+  negative rows** — it has now occurred in **three** consecutive waves: 00-04 added
+  `nc-checkfixtures-mutants-present` (pins that the two fixture mutants are still the *swapped*
+  pair, not merely present) and `nc-lean-mutants-present`, both observed to FAIL with an artifact
+  moved away, plus `nc-ci-gate-armed` for the same reason on the GATE-06 side.
+- **[Phase 0 — FOUR plans, four sets of factual errors in their own acceptance criteria]** 00-01
+  (rc=1 vs make's 2), 00-02 (the same, three times, plus a mutant that could not fail), 00-03 (a
+  `grep -c` count of 1 against a comment the plan itself mandates, and `26 entries` where 18+10 =
+  28), 00-04 (**rc=1 for a `make …` row for the fourth consecutive wave**; `39 entries` where the
+  plan's own action lists give 29+13 = 42; and `git ls-files` specified for a lint engine whose
+  committed criterion bans the module that would require). None were resolved by weakening the
+  check; each was recorded with the measurement that contradicts it and a stricter substitute.
+  **Planners: derive counts from the tree, not from memory — and stop restating a code GNU make
+  does not produce.**
+- **[Phase 0 — the executor's own SUMMARY failed its self-check, twice]** 00-04 claimed
+  `grep -c 'auto-created'` → 2 and `grep -c 'subprocess'` → 0 in prose; **run**, they printed 0 and
+  1. Both were real criterion failures (a capitalised word, and the banned token sitting in a
+  comment — 00-01's standing decision says a comment naming a banned idiom is indistinguishable from
+  using it). Fixed in `ce0bee2`, not reworded. **Run every grep-shaped criterion; do not read it.**
 - **[Phase 1 — genuinely blocked]** REPR-07's `E2.liquidityBar` normalizer question is open
   on **cfmm-gams#1**. Corrected fact: `LbarQ128`/`DICfgQ128` are **not both `2^128`** — each
   unit sets one to `2^128` and the other to `2^128/10`, swapped. If they are genuine
@@ -391,8 +453,21 @@ None yet. (`.planning/todos/pending/` not created)
 ## Session Continuity
 
 Last session: 2026-08-15
-Stopped at: Completed 00-03-PLAN.md on branch `gsd/phase-0-honest-gates` (commits `ea93da7`, `11ccfe5`, `afa597c`, `d15fc48`). GATE-02/03/04 met. Five gates re-verified at the end: `compile-gams: 12 ok, 0 failed, 0 skipped`; `test-gams: 4 passed, 0 failed`; `lint-gams: 16 files, 7 rules, 0 violations`; `lint-make: 10 recipes, 0 findings` (was 9 — `lint-gams` is inside its enumeration); `negative-controls: 29 entries, 0 failed`. `git status --short -- 'model/*.gdx'` empty. Next: 00-04 (GATE-05/06/07; NOT autonomous — carries the runner checkpoint).
-Resume file: .planning/phases/00-honest-gates/00-03-SUMMARY.md
+Stopped at: **00-04-PLAN.md task 4 — a BLOCKING human-action checkpoint** on branch
+`gsd/phase-0-honest-gates` (commits `e749aa5`, `1a272bd`, `86a4373`, `8debace`, `ce0bee2`). Tasks
+1-3 done: GATE-05 and GATE-07 met, GATE-06 met on the rules leg only. Eight gates re-verified at the
+end: `compile-gams: 12 ok, 0 failed, 0 skipped`; `test-gams: 4 passed, 0 failed`;
+`lint-gams: 16 files, 8 rules, 0 violations`; `lint-make: 13 recipes, 0 findings` (was 10 —
+`check-fixtures`, `lean-sorry-check` and `ci-selftest` are inside its enumeration);
+`check-fixtures: 2 FRESH`, rc=0; `spec-preflight` and `spec-preflight-band` rc=0 with the Lean gate
+running in both; `ci-selftest`: `protection_rules: 1`, `runners: 0`, **FAIL on the runner leg**;
+`negative-controls: 50 entries, 1 failed` — **RED at `nc-ci-selftest-positive` by design**.
+`git status --short -- 'model/*.gdx'` empty.
+**Next: the user must either register a self-hosted runner** (see `00-04-SUMMARY.md` "User Setup
+Required" — the ordering constraint is already satisfied: protection rules are in place)
+**or decline**, in which case GATE-06 stays OPEN, Phase 0 closes at **7 of 8** criteria, and the red
+row stays exactly as it is. Do not delete it, re-`expect` it, or comment it out.
+Resume file: .planning/phases/00-honest-gates/00-04-SUMMARY.md
 
 **Uncommitted on purpose:** `.planning/ROADMAP.md` carries 3 unrelated pending GATE-07 wording
 edits from a prior session, plus 00-02's and 00-03's Phase-0 plan checkmarks and the `3/4` progress
