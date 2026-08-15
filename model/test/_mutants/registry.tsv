@@ -7,3 +7,17 @@ nc-runner-positive-testgams	positive	0	make test-gams	test-gams is green on the 
 nc-runner-negative-gamsabort	negative	3	mkdir -p model/build && cd model && gams test/_mutants/gams/always_aborts.gms action=ce o=build/nc_always_aborts.lst scrdir=build lo=0 >/dev/null 2>&1	gams returns rc=3 on abort -- the runner sees a non-zero exit and reports it as expected
 nc-runner-selftest-registry	negative	nonzero	make negative-controls REGISTRY=model/test/_mutants/registry.selftest.tsv	the runner itself reddens when an expectation is not met (see task 3)
 nc-runner-empty-registry	negative	nonzero	mkdir -p model/build && printf '# only a comment\n' > model/build/nc_empty.tsv && make negative-controls REGISTRY=model/build/nc_empty.tsv	an emptied registry is a false pass; the runner must refuse it
+#
+# ── GATE-01 controls (plan 00-02) ─────────────────────────────
+nc-gate01-payoff-fixtures-mutant	negative	nonzero	make payoff-fixtures PAYOFF_SRC_DIR=test/_mutants/payoff	a payoff unit with a compile error reddens payoff-fixtures (it printed OK before GATE-01)
+nc-gate01-payoff-fixtures-empty	negative	nonzero	make payoff-fixtures PAYOFF_SRC_DIR=nosuchdir	a glob matching zero units fails instead of reporting a vacuous OK
+nc-gate01-payoff-fixtures-positive	positive	0	mkdir -p model/build && cp model/payoff_zero_slippage.gdx model/payoff_band_monotone_large.gdx model/build/ && make payoff-fixtures; rc=$?; cp model/build/payoff_zero_slippage.gdx model/build/payoff_band_monotone_large.gdx model/ ; exit $rc	payoff-fixtures is green on the clean tree, and the committed fixtures are restored so the row leaves no diff
+nc-gate01-spec-preflight-mutant	negative	nonzero	make spec-preflight SPEC_ZS=model/test/_mutants/specs/zero_slippage_broken.md	a spec whose gams block does not compile reddens spec-preflight
+nc-gate01-spec-preflight-positive	positive	0	make spec-preflight	spec-preflight is green on the committed spec
+nc-gate01-spec-band-mutant	negative	nonzero	make spec-preflight-band SPEC_BAND=model/test/_mutants/specs/band_monotone_large_broken.md	a spec whose gams block does not compile reddens spec-preflight-band
+nc-gate01-spec-band-nolean	negative	nonzero	make spec-preflight-band LEAN4_SPEC_DIR=/nonexistent	the Lean leg of spec-preflight-band fails when the submodule is absent (expect=nonzero, not 1: make collapses every recipe failure to its own exit status 2)
+nc-gate01-spec-band-positive	positive	0	make spec-preflight-band	spec-preflight-band is green on the committed spec and the initialised submodule
+nc-lintmake-missing-shellcheck	negative	nonzero	make lint-make SHELLCHECK=/nonexistent/shellcheck	lint-make fails loudly when shellcheck is absent instead of silently skipping
+nc-lintmake-grep-predicate	negative	1	python3 model/lint/lint_make.py --file model/test/_mutants/make/grep_predicate.mk	lint-make reddens on a grep-derived predicate in a gating position
+nc-lintmake-no-set-e	negative	1	python3 model/lint/lint_make.py --file model/test/_mutants/make/no_set_e.mk	lint-make reddens on a compound recipe line that does not declare set -e
+nc-lintmake-positive	positive	0	make lint-make	lint-make is green over every recipe in Makefile and mk/*.mk
