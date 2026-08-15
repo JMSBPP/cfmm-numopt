@@ -127,7 +127,27 @@ payoff-fixtures:
 # the production layout and drive it the way production does. Catches
 # divergences in include paths, file boundaries, and driver wiring that a
 # flat-concat preflight would miss. Before any spec commit, this must pass.
+#
+# GATE-07: this target performed NO Lean check at all until plan 00-04. The
+# declaration it cites is exported by
+# model/payoff/eta_pi_trader_zero_slippage.gms:178-180 and lives at
+# lean4-spec/exp/eta.lean:518. The gate is model/test/lean_sorry_check.sh and the
+# predicate is its exit code.
 spec-preflight:
+	@set -e; LEAN=$(LEAN4_SPEC_DIR)/exp/eta.lean; \
+	if [ ! -f "$$LEAN" ]; then \
+		printf 'spec-preflight FAIL: %s not found.\n' "$$LEAN"; \
+		printf '  Run: git submodule update --init lean4-spec\n'; \
+		printf '  or point LEAN4_SPEC_DIR at a checkout of JMSBPP/cfmm-lean4-spec.\n'; \
+		exit 1; \
+	fi; \
+	for ID in pi_trader_half_zero_at_deltaI_star; do \
+		if ! sh model/test/lean_sorry_check.sh "$$LEAN" "$$ID"; then \
+			printf 'spec-preflight FAIL: Lean gate rejected %s\n' "$$ID"; \
+			exit 1; \
+		fi; \
+	done; \
+	printf 'spec-preflight: Lean substrate OK (1 declaration sorry/admit-free)\n'
 	@rm -rf $(GAMS_DIR)/$(GAMS_BUILD)/spec
 	@mkdir -p $(GAMS_DIR)/$(GAMS_BUILD)/spec/payoff $(GAMS_DIR)/$(GAMS_BUILD)/spec/test
 	@set -e; SPEC=$(SPEC_ZS); \
@@ -148,6 +168,12 @@ spec-preflight:
 # the spec MD into the production layout and drives the band unit. Both legs gate
 # on an EXIT CODE: model/test/lean_sorry_check.sh for Lean, gams itself for GAMS.
 #
+# The three ids below are matched EXACTLY (plan 00-04). The list previously
+# carried the TRUNCATED id `pi_trader_half_strictly_increasing_in_`, which the
+# old column-0 `^theorem <id>` grep accepted as a prefix; exact matching returns
+# 2 (declaration not found) for it, which is the correct behaviour — a prefix
+# match is how a rename goes undetected.
+#
 # LEAN4_SPEC_DIR defaults to the lean4-spec submodule at the repo root. Note the
 # path has no `lean/` segment: JMSBPP/cfmm-lean4-spec stores exp/ at ITS root
 # (it is itself a subtree split of the monorepo's lean/ directory).
@@ -162,7 +188,7 @@ spec-preflight-band:
 		printf '  or point LEAN4_SPEC_DIR at a checkout of JMSBPP/cfmm-lean4-spec.\n'; \
 		exit 1; \
 	fi; \
-	for ID in pi_trader_half_strictly_increasing_in_ pi_trader_half_band_min_at_left pi_trader_half_band_max_large_trade; do \
+	for ID in pi_trader_half_strictly_increasing_in_Δi pi_trader_half_band_min_at_left pi_trader_half_band_max_large_trade; do \
 		if ! sh model/test/lean_sorry_check.sh "$$LEAN" "$$ID"; then \
 			printf 'spec-preflight-band FAIL: Lean gate rejected %s\n' "$$ID"; \
 			exit 1; \

@@ -72,3 +72,37 @@ nc-checkfixtures-empty-tsv	negative	nonzero	make check-fixtures CHECK_FIXTURES_T
 # integrity -- the mutants must still be the two real fixtures SWAPPED.
 nc-checkfixtures-mutants-present	positive	0	cmp -s model/test/_mutants/fixtures/payoff_zero_slippage.gdx model/payoff_band_monotone_large.gdx && cmp -s model/test/_mutants/fixtures/payoff_band_monotone_large.gdx model/payoff_zero_slippage.gdx	both stale-fixture mutants EXIST and are still the SWAPPED pair; deleting or un-swapping one must not leave the suite green (D1 rule)
 nc-lintgams-gdx-undeclared	negative	1	python3 model/lint/lint_gams.py --rules model/lint/rules.tsv --fixtures /dev/null --unversioned /dev/null	LINT-08 reddens a committed .gdx that declares neither a wired producer nor knowingly-unversioned status
+# ── GATE-07 controls (plan 00-04) ─────────────────────────────────────────
+# The lean4-spec submodule contains NO real sorry: the single occurrence of the
+# token, at exp/eta.lean:602, is inside a /- -/ doc comment. A scan of the tree
+# therefore has nothing to find, and model/test/_mutants/lean/ is the ONLY thing
+# that can prove this gate fires.
+#
+# The rows below invoke model/test/lean_sorry_check.sh DIRECTLY wherever the
+# exact code carries information (0 clean / 1 sorry / 2 not found / 3 usage).
+# Driving them through `make lean-sorry-check` would collapse 1 and 3 to make's
+# own exit status 2, at which point a "sorry found" row and a "declaration not
+# found" row become indistinguishable -- the D1 shape. The make TARGET is covered
+# separately by nc-lean-sorry-target-fires with expect=nonzero.
+nc-lean-sorry-fires	negative	1	sh model/test/lean_sorry_check.sh model/test/_mutants/lean/SorryFixture.lean indented_namespaced_sorry	an INDENTED, NAMESPACED theorem carrying a real sorry reddens the gate
+nc-lean-sorry-later-not-misattributed	positive	0	sh model/test/lean_sorry_check.sh model/test/_mutants/lean/SorryFixture.lean clean_before_a_later_sorry	a clean declaration is NOT reddened by a sorry in a LATER declaration -- the column-0 awk mis-attribution defect
+nc-lean-sorry-doccomment-clean	positive	0	sh model/test/lean_sorry_check.sh model/test/_mutants/lean/SorryFixture.lean clean_with_sorry_in_its_doc_comment	the word sorry inside a /- -/ doc comment does not redden -- the eta.lean:602 shape, stripped before the scan
+nc-lean-sorry-notfound	negative	2	sh model/test/lean_sorry_check.sh lean4-spec/vol_markets/Flow.lean no_such_declaration	an unknown declaration id returns 2 rather than passing silently
+nc-lean-sorry-usage	negative	3	sh model/test/lean_sorry_check.sh	no arguments returns 3 (usage), never a green
+nc-lean-sorry-lemma-positive	positive	0	sh model/test/lean_sorry_check.sh lean4-spec/vol_markets/Flow.lean deltaShares_nonneg	a namespaced `lemma` -- which the old column-0 ^theorem grep matched ZERO of, across six vol_markets modules -- passes the repaired gate
+nc-lean-sorry-mev-positive	positive	0	sh model/test/lean_sorry_check.sh lean4-spec/vol_markets/MevOptimization.lean ptrade_strictAntiOn	a namespaced vol_markets theorem passes the repaired gate
+nc-lean-sorry-eta-positive	positive	0	sh model/test/lean_sorry_check.sh lean4-spec/exp/eta.lean pi_trader_half_zero_at_deltaI_star	the declaration spec-preflight now gates on passes, and the backticked sorry in the eta.lean doc comment does not falsely redden it
+nc-lean-sorry-target-fires	negative	nonzero	make lean-sorry-check MODULE=model/test/_mutants/lean/SorryFixture.lean THEOREM=indented_namespaced_sorry	the make TARGET propagates the gate failure (recipe rc=1, make rc=2)
+# The two rows below are the strong form of "spec-preflight gates on Lean":
+# model/test/_mutants/lean/ is a drop-in LEAN4_SPEC_DIR whose exp/eta.lean carries
+# all four cited declarations WITH a sorry, so the targets redden because the gate
+# REJECTED a declaration -- not because a file was missing, which is how
+# LEAN4_SPEC_DIR=/nonexistent reddens.
+nc-lean-preflight-sorry	negative	nonzero	make spec-preflight LEAN4_SPEC_DIR=model/test/_mutants/lean	spec-preflight -- which performed NO Lean check before plan 00-04 -- reddens when the cited declaration carries a sorry
+nc-lean-preflight-band-sorry	negative	nonzero	make spec-preflight-band LEAN4_SPEC_DIR=model/test/_mutants/lean	spec-preflight-band reddens when a cited band theorem carries a sorry, not merely when the submodule is absent
+# D1's rule applied to the GATE-07 rows: every negative row above reads a
+# COMMITTED fixture, and a DELETED fixture also fails (rc=3 / cp error), so each
+# would keep passing with its own proof gone. This row pins presence AND
+# integrity: the sorries must still be there and exp/eta.lean must still declare
+# all four cited ids.
+nc-lean-mutants-present	positive	0	test "$(grep -c '^[[:space:]]*sorry$' model/test/_mutants/lean/SorryFixture.lean)" -eq 2 && test "$(grep -c '^[[:space:]]*sorry$' model/test/_mutants/lean/exp/eta.lean)" -eq 4 && test "$(grep -c 'theorem pi_trader_half_' model/test/_mutants/lean/exp/eta.lean)" -eq 4	both Lean mutants EXIST and still carry their real sorries and all four cited declaration ids; deleting or gutting one must not leave the suite green (D1 rule)

@@ -48,3 +48,17 @@ check-fixtures:
 	done; \
 	printf '\ncheck-fixtures: compared %s fixture(s)\n' "$$(printf '%s\n' $$names | wc -l)"; \
 	exit $$rc
+
+# ── GATE-07: the Lean proof gate, usable from any target ───────────────────
+# The predicate is model/test/lean_sorry_check.sh's exit code: 0 clean,
+# 1 sorry/admit in the body, 2 declaration not found, 3 usage/file error.
+# Declaration ids are matched EXACTLY, against the bare name or the
+# fully-qualified (namespace-prefixed) name.
+.PHONY: lean-sorry-check
+
+lean-sorry-check:
+	@set -e; \
+	if [ -z "$(MODULE)" ] || [ -z "$(THEOREM)" ]; then \
+		printf 'usage: make lean-sorry-check MODULE=<file> THEOREM=<name>\n'; exit 3; \
+	fi; \
+	sh model/test/lean_sorry_check.sh "$(MODULE)" "$(THEOREM)"
