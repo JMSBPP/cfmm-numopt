@@ -174,7 +174,7 @@ They are stated once here and are binding on all phases below.
 | That a per-call-site saturation literal is acceptable — **but exactly one named constant is** | Rev 1 banned the saturation constant outright, which forbade the only working detector for the silent regime. The permitted form is a single `SATURATION_SENTINEL` declared once in the scales module and **re-derived from `exp(1000)` at build time**, never a literal, never duplicated. |
 | That a constants module can be built at compile time | `$eval 2**96` is wrong by exactly `2^45`; `power(2,96)` is exact. Independently re-verified twice. |
 | That an exported provenance scalar means anything because a lint says it is read | The read-existence lint is **already gamed**: `inputs('etaQ128') = etaQ128;` is a pure copy into the GDX, so `etaQ128` passes "is read by an assignment" while remaining fabricated provenance. The enforcing mechanism is TEST-08's registered mutation proof, not a read check. |
-| That `spec-preflight` says anything about the GAMS side — **or, today, about the Lean side either** | It proves the *Lean* module is sorry-free only where it actually greps. Measured: `make spec-preflight` performs **no Lean grep at all** (only `spec-preflight-band` does), its `sorry` scan looks for `sorry`/`admit` occurrences that do not exist repo-wide, and the grep it does run is column-0-anchored so it matches **zero** of the 134 namespaced `vol_markets` theorems. |
+| That `spec-preflight` says anything about the GAMS side — **or, today, about the Lean side either** | It proves the *Lean* module is sorry-free only where it actually greps. Measured: `make spec-preflight` performs **no Lean grep at all** (only `spec-preflight-band` does), its `sorry` scan looks for `sorry`/`admit` occurrences that do not exist repo-wide, and the grep it does run is column-0-anchored so it matches **zero** of them — because six modules declare `lemma`, not `theorem` (NOT because of indentation: measured, nothing is indented). |
 | That an MINLP or global-solver cross-check is available | `option minlp = conopt` is compile error `$255`; BARON is capped at 50 variables on this demo license. |
 | That the demo license is a "hard wall" that some phase must defend against | Vacuous. A 1200-variable NLP already returns **rc=7** with a named diagnostic (`*** The model exceeds the demo license limits…`) — there is no bare solver failure to improve on. And since units are structurally un-aggregable (`$150 Symbolic equations redefined`, unconditional even under `$onMulti`), no single model grows toward 1000, so a size assert could never fire. No phase carries a license criterion. |
 | That `priceImpactKernel_Add0` covers the EVM function | It contains **zero conditional operators** — the `add=false` / `divRoundingUp` branch is simply *absent*, not merely unexercised, and no test can currently detect the gap. |
@@ -547,7 +547,7 @@ too coarse to be falsifiable.
      (`model/test/_mutants/lean/SorryFixture.lean` — an indented, namespaced theorem with a
      real `sorry`) that must redden, and a positive control over an indented namespaced
      `vol_markets` theorem that must pass. Measured: the existing gate's column-0-anchored
-     `grep -nE "^theorem $ID"` matches **zero** of the 134 namespaced `vol_markets` theorems,
+     `grep -nE "^theorem $ID"` matches **zero** of them — because six modules declare `lemma`, not `theorem` (NOT because of indentation: measured, nothing is indented),
      and its column-0 `awk` body extraction would attribute a later `sorry` to the wrong
      theorem. The repaired gate is wired into every target that claims proof gating —
      including `spec-preflight`, which performs **no Lean grep at all** today.
@@ -564,10 +564,10 @@ too coarse to be falsifiable.
 **Plans**: 4 plans, serial (waves 1-4; each registers into the substrate the previous one landed)
 
 Plans:
-- [ ] 00-01-PLAN.md — TEST-09 `_mutants/` + `make negative-controls` + the permanent `-include mk/*.mk` point *(wave 1, TEST-09)*
-- [ ] 00-02-PLAN.md — exit-code-only gating in the three targets + the `lint-make` shellcheck leg *(wave 2, GATE-01)*
-- [ ] 00-03-PLAN.md — `rules.tsv` lint harness with the GATE-02/GATE-04 rules; `solveStat` assertions + LINT-06/07 *(wave 3, GATE-02/03/04)*
-- [ ] 00-04-PLAN.md — `check-fixtures` + gdxdiff rc table; `ci-selftest` + protection rules; namespaced `lean-sorry-check` *(wave 4, GATE-05/06/07; NOT autonomous — carries the runner checkpoint)*
+- [x] 00-01-PLAN.md — TEST-09 `_mutants/` + `make negative-controls` + the permanent `-include mk/*.mk` point *(wave 1, TEST-09)* — **done 2026-08-15**
+- [x] 00-02-PLAN.md — exit-code-only gating in the three targets + the `lint-make` shellcheck leg *(wave 2, GATE-01)* — **done 2026-08-15**; also closed deferred item D1. Progress: **2/4 plans, In Progress**
+- [x] 00-03-PLAN.md — `rules.tsv` lint harness with the GATE-02/GATE-04 rules; `solveStat` assertions + LINT-06/07 *(wave 3, GATE-02/03/04)* — **done 2026-08-15**; LINT-06 measured to find exactly the 2 real `solveStat` gaps (band:118, zero-slip:89) where the token-anywhere form finds 0; 11 new registry rows (29 total). Progress: **3/4 plans, In Progress**
+- [x] 00-04-PLAN.md — `check-fixtures` + gdxdiff rc table; `ci-selftest` + protection rules; namespaced `lean-sorry-check` *(wave 4, GATE-05/06/07; NOT autonomous — carried the runner checkpoint)* — **done 2026-08-15, checkpoint resolved by the user.** GATE-05 met at its honest scope (`price_impact_kernel.gdx` recorded knowingly unversioned per the user's decision; LINT-08 reddens any new undeclared `.gdx`) and GATE-07 met (the old gate matched **zero** `lemma` declarations; six `vol_markets` modules declare no column-0 `theorem` at all). **GATE-06 now fully met.** The required reviewer was added to `gams-gate` **before** any runner existed — `ci-selftest` failed on the *rules* leg before and the *runner* leg after, never once reporting OK, which is the proof the ordering held and the fork-PR window never opened. Runner `cfmm-build-gams` (v2.336.0, labels `self-hosted,cfmm-build`) was then registered at the user's explicit instruction: `ci-selftest OK (1 protection rule(s), 1 runner(s))`, `negative-controls: 50 entries, 0 failed`. `nc-ci-selftest-positive` passes because its condition became true — the row is byte-identical to how 00-04 committed it. **Caveat:** the rule carries GitHub's defaults `prevent_self_review: false` and `can_admins_bypass: true`, neither probed by `ci-selftest` — it is "a human deliberately clicks approve", not a two-person rule. 21 new registry rows (50 total); `make negative-controls` is **RED at exactly one row**, `nc-ci-selftest-positive`, by design.
 
 ### Phase 1: Representation kernel + the executable dual-representation spine
 **Goal**: Every scale, bound and set has exactly one definition, and the Core Value stops being a comment — an EVM-coordinate evaluator that does not derive from the Lean one, with a real agreement assertion between them.
@@ -1032,7 +1032,7 @@ Plans:
      `make lean-sorry-check` (GATE-07, Phase 0) exits non-zero if that theorem's body
      carries `sorry`/`admit`, exercised by Phase 0's committed indented-namespaced fixture.
      Stated explicitly because rev 1 claimed a capability no phase created: today's gate is
-     column-0-anchored and matches **zero** of the 134 namespaced `vol_markets` theorems,
+     column-0-anchored and matches **zero** of them — because six modules declare `lemma`, not `theorem` (NOT because of indentation: measured, nothing is indented),
      and `make spec-preflight` runs **no Lean grep at all**. This criterion is a claim about
      the Phase-0 artifact, not about the current one.
 
@@ -1589,7 +1589,7 @@ Phase 0 and never again (`-include mk/*.mk`), and `model/lint/rules.tsv` and
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 0. Honest gates | 1/4 | In progress | - |
+| 0. Honest gates | 4/4 | Complete — all 8 requirements met | 2026-08-15 |
 | 1. Representation kernel + spine | 0/6 | Not started | - |
 | 2. Test architecture | 0/5 | Not started | - |
 | 3. The (Δᵢ, η) solve | 0/5 | Not started | - |
