@@ -9,11 +9,6 @@ concurrency:
   cancel-in-progress: true
 permissions:
   contents: read
-  # ci-selftest probes the gams-gate environment's protection-rule count and the
-  # registered-runner count. Two negative-control rows invoke it, so the job needs
-  # read access to those two surfaces — and nothing more. Still no write scope
-  # anywhere; this remains a read-only workflow.
-  administration: read
 
 jobs:
   # SECURITY GATE — do not remove.
@@ -69,11 +64,23 @@ jobs:
 
       # negative-controls is the instrument that certifies every other gate: 50
       # committed mutants, each asserted to produce its expected non-zero code.
-      # Two of its rows shell out to `ci-selftest`, which probes the environment's
-      # protection rules and the runner count — hence the elevated read scope below.
-      # If those two rows fail on token scope, the fix is a PAT secret; it is NOT
-      # to weaken or delete the rows.
-      - name: negative-controls — every gate proven able to fail
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: make negative-controls
+      #
+      # NOT RUN HERE YET, and the reason is a credential boundary rather than a
+      # choice to run fewer checks. Two rows (nc-ci-selftest-positive,
+      # nc-ci-selftest-badrepo) shell out to `ci-selftest`, which probes the
+      # gams-gate environment's protection-rule count and the registered-runner
+      # count. GITHUB_TOKEN cannot read those surfaces, and `administration` is a
+      # GitHub App / fine-grained-PAT permission — NOT a valid Actions
+      # `permissions:` key, so it cannot simply be granted here (an earlier commit
+      # tried and made the whole workflow unparseable: run 31915452948 failed with
+      # zero jobs).
+      #
+      # Enabling it needs a PAT with the runner/environment read scopes, exposed as
+      # a secret and passed as GH_TOKEN. That is a credential decision for the repo
+      # owner. The rows are NOT to be weakened, skipped or deleted to get CI green —
+      # the whole point of TEST-09 is that a gate which cannot fail is worthless.
+      #
+      #   - name: negative-controls — every gate proven able to fail
+      #     env:
+      #       GH_TOKEN: ${{ secrets.CI_SELFTEST_PAT }}
+      #     run: make negative-controls
