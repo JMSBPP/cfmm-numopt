@@ -28,3 +28,33 @@ nc-lintmake-positive	positive	0	make lint-make	lint-make is green over every rec
 # These two rows make the deletion and the gutting observable.
 nc-selftest-file-present	positive	0	test -f model/test/_mutants/registry.selftest.tsv	the runner's mutation proof EXISTS; deleting it must not leave the suite green (D1)
 nc-selftest-entry-count	positive	0	test "$(awk -F'\t' '!/^#/ && NF' model/test/_mutants/registry.selftest.tsv | wc -l)" -eq 3	the mutation proof still carries all THREE kinds of wrongness (nonzero-on-true, positive-on-false, wrong-exact-rc); gutting it to one always-failing row must not leave the suite green (D1)
+#
+# ── GATE-02 / GATE-03 / GATE-04 controls (plan 00-03) ─────────────────────
+# One mutant per rule in model/lint/rules.tsv. `expect = nonzero` on every row
+# whose command is `make …`: GNU make collapses any recipe failure to its own
+# exit status 2. Rows invoking python3/gams directly pin the exact code.
+nc-lintgams-positive	positive	0	make lint-gams	lint-gams is green on the current tree; every rule below is measured to have zero matches there
+nc-lintgams-abort-noerror	negative	nonzero	make lint-gams LINT_PATHS=model/test/_mutants/gms/abort_noerror.gms	LINT-01 reddens on abort.noError, which halts silently at rc=0
+nc-lintgams-bare-execute	negative	nonzero	make lint-gams LINT_PATHS=model/test/_mutants/gms/bare_execute.gms	LINT-02 reddens on a bare execute, whose failure returns rc=0
+nc-lintgams-call-nocheck	negative	nonzero	make lint-gams LINT_PATHS=model/test/_mutants/gms/call_nocheck.gms	LINT-03 reddens on a $call without $call.checkErrorLevel
+nc-lintgams-onmulti	negative	nonzero	make lint-gams LINT_PATHS=model/test/_mutants/gms/onmulti.gms	LINT-04 reddens on $onMultiR, which silently replaces at rc=0
+nc-lintgams-execerror	negative	nonzero	make lint-gams LINT_PATHS=model/test/_mutants/gms/execerror_assign.gms	LINT-05 reddens on an assignment to execError
+nc-lintgams-solve-no-solvestat	negative	nonzero	make lint-gams LINT_PATHS=model/test/_mutants/gms/solve_no_solvestat.gms	LINT-06 reddens on a Solve asserting modelStat only -- and is NOT satisfied by .solveStat appearing in the display arguments
+nc-lintgams-solve-no-modelstat	negative	nonzero	make lint-gams LINT_PATHS=model/test/_mutants/gms/solve_no_modelstat.gms	LINT-07 reddens on a Solve asserting solveStat only
+nc-lintgams-empty-ruletable	negative	2	python3 model/lint/lint_gams.py --rules /dev/null	an empty rule table is a false pass and must be refused
+# D1's general rule applied to this plan: the eight `nonzero` rows above read
+# COMMITTED mutants, and a deleted mutant also exits non-zero (rc=2, "does not
+# exist"), so each would keep passing for the wrong reason. This positive row
+# makes the deletion -- and the gutting of a mutant to a file that no longer
+# names its rule -- observable.
+nc-lintgams-mutants-present	positive	0	test "$(ls model/test/_mutants/gms/*.gms | wc -l)" -eq 7 && test "$(grep -ho 'LINT-0[1-7]' model/test/_mutants/gms/*.gms | sort -u | wc -l)" -eq 7	all SEVEN lint mutants EXIST and still name all seven rule ids; deleting or gutting one must not leave the suite green (D1 rule)
+# UNVERIFIABLE-LEG: the row below proves the solveStat/modelStat assertion PAIR
+# fires. It does NOT isolate solveStat -- no committed input is known that
+# degrades solveStat while leaving modelStat acceptable. LINT-06 guarantees
+# coverage; this row guarantees the pair is not inert. Measured under
+# `option iterlim = 0`: solveStat 11 (Internal Solver Failure), modelStat 5
+# (Locally Infeasible) -- both degrade together, which is precisely why this
+# mutant cannot isolate solveStat. The exact rc=3 is pinned rather than
+# `nonzero` so that a mutant reddening for the WRONG reason (rc=2, a compile
+# error from a broken $include path) is caught instead of absorbed.
+nc-gate03-iterlim0-band	negative	3	mkdir -p model/build && cp model/payoff_band_monotone_large.gdx model/build/nc_band_backup.gdx && cd model && gams test/_mutants/gams/band_iterlim0.gms action=ce o=build/nc_iterlim0.lst scrdir=build lo=0 >/dev/null 2>&1; rc=$?; cp build/nc_band_backup.gdx payoff_band_monotone_large.gdx; exit $rc	option iterlim=0 makes the GATE-03 status assertions fire on the band unit
