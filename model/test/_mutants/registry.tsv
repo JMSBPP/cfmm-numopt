@@ -1,0 +1,9 @@
+# TEST-09 negative-control registry. APPEND-ONLY, one entry per line (M7).
+# id	kind	expect	command	claim
+# Columns are TAB separated. Run with: make negative-controls
+#
+# ── seed controls (plan 00-01) ────────────────────────────────────────────
+nc-runner-positive-testgams	positive	0	make test-gams	test-gams is green on the clean tree; if this row fails the runner is measuring a broken tree, not a broken gate
+nc-runner-negative-gamsabort	negative	3	mkdir -p model/build && cd model && gams test/_mutants/gams/always_aborts.gms action=ce o=build/nc_always_aborts.lst scrdir=build lo=0 >/dev/null 2>&1	gams returns rc=3 on abort -- the runner sees a non-zero exit and reports it as expected
+nc-runner-selftest-registry	negative	nonzero	make negative-controls REGISTRY=model/test/_mutants/registry.selftest.tsv	the runner itself reddens when an expectation is not met (see task 3)
+nc-runner-empty-registry	negative	nonzero	mkdir -p model/build && printf '# only a comment\n' > model/build/nc_empty.tsv && make negative-controls REGISTRY=model/build/nc_empty.tsv	an emptied registry is a false pass; the runner must refuse it

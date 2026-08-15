@@ -1,6 +1,7 @@
 # ── TEST-09: the negative-control registry runner ─────────────────────────
-# PASS/FAIL PREDICATE IS THE EXIT CODE ONLY. `grep` must never appear in a
-# conditional position here — that is the idiom this phase exists to remove.
+# PASS/FAIL PREDICATE IS THE EXIT CODE ONLY. Output-scraping (pattern matching
+# a listing file) must never appear in a conditional position here — that is
+# the idiom this phase exists to remove.
 REGISTRY   ?= model/test/_mutants/registry.tsv
 NC_TIMEOUT ?= 900
 
