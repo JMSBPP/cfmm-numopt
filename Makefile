@@ -13,6 +13,13 @@ GAMS_BUILD := build
 # paths relative to $(GAMS_DIR) here if a file should be excluded.
 GAMS_SKIP  :=
 
+# Parameterised so TEST-09 mutants can drive the SAME recipe over a broken
+# input. Never edit these to point at a mutant; pass them on the command line.
+PAYOFF_SRC_DIR ?= payoff
+PAYOFF_GLOB    ?= eta_*.gms
+SPEC_ZS        ?= docs/specs/2026-06-28-payoff-zero-slippage-design.md
+SPEC_BAND      ?= docs/specs/2026-06-28-payoff-band-monotone-large-design.md
+
 # ── M7 concurrency substrate ──────────────────────────────────────────────
 # The ONE permanent extension point. Every later plan and phase ships its own
 # mk/<name>.mk and NEVER edits this file again. `-include` is silent when the
@@ -31,7 +38,7 @@ GAMS_SKIP  :=
 # the build instead of hiding.
 compile-gams:
 	@mkdir -p $(GAMS_DIR)/$(GAMS_BUILD)
-	@cd $(GAMS_DIR) && rc=0; ok=0; fail=0; skip=0; \
+	@set -e; cd $(GAMS_DIR); rc=0; ok=0; fail=0; skip=0; \
 	for f in $$(find . -name '*.gms' -not -path './test/*' -not -path './build/*' | sed 's|^\./||' | sort); do \
 		case " $(GAMS_SKIP) " in \
 			*" $$f "*) printf '   SKIP %s  (fragment/stub — BUILD.md)\n' "$$f"; skip=$$((skip+1)); continue;; \
@@ -41,10 +48,15 @@ compile-gams:
 		if $(GAMS) "$$f" action=c o="$$out" scrdir="$(GAMS_BUILD)" lo=0 >/dev/null 2>&1; then \
 			printf '   OK   %s\n' "$$f"; ok=$$((ok+1)); \
 		else \
-			printf '   FAIL %s  (gams rc=%s) -> %s/%s\n' "$$f" "$$?" "$(GAMS_DIR)" "$$out"; \
+			rcg=$$?; \
+			printf '   FAIL %s  (gams rc=%s) -> %s/%s\n' "$$f" "$$rcg" "$(GAMS_DIR)" "$$out"; \
 			fail=$$((fail+1)); rc=1; \
 		fi; \
 	done; \
+	if [ $$((ok+fail+skip)) -eq 0 ]; then \
+		printf 'compile-gams FAIL: no .gms matched\n'; \
+		exit 1; \
+	fi; \
 	printf '\ncompile-gams: %s ok, %s failed, %s skipped\n' "$$ok" "$$fail" "$$skip"; \
 	exit $$rc
 
@@ -60,17 +72,22 @@ compile-gams:
 # `make negative-controls`, never by test-gams — otherwise the suite would red by design.
 test-gams:
 	@mkdir -p $(GAMS_DIR)/$(GAMS_BUILD)
-	@cd $(GAMS_DIR) && rc=0; ok=0; fail=0; \
+	@set -e; cd $(GAMS_DIR); rc=0; ok=0; fail=0; \
 	for f in $$(find test -name '*.gms' -not -path 'test/_mutants/*' 2>/dev/null | sed 's|^\./||' | sort); do \
 		out="$(GAMS_BUILD)/$$(echo "$$f" | tr / _ | sed 's/\.gms$$//').lst"; \
 		printf '>> testing %s\n' "$$f"; \
 		if $(GAMS) "$$f" action=ce o="$$out" scrdir="$(GAMS_BUILD)" lo=0 >/dev/null 2>&1; then \
 			printf '   PASS %s\n' "$$f"; ok=$$((ok+1)); \
 		else \
-			printf '   FAIL %s  (gams rc=%s) -> %s/%s\n' "$$f" "$$?" "$(GAMS_DIR)" "$$out"; \
+			rcg=$$?; \
+			printf '   FAIL %s  (gams rc=%s) -> %s/%s\n' "$$f" "$$rcg" "$(GAMS_DIR)" "$$out"; \
 			fail=$$((fail+1)); rc=1; \
 		fi; \
 	done; \
+	if [ $$((ok+fail)) -eq 0 ]; then \
+		printf 'test-gams FAIL: no test unit matched test/*.gms\n'; \
+		exit 1; \
+	fi; \
 	printf '\ntest-gams: %s passed, %s failed\n' "$$ok" "$$fail"; \
 	exit $$rc
 
@@ -80,21 +97,30 @@ clean-gams:
 		$(GAMS_DIR)/*.lst $(GAMS_DIR)/*.g00 $(GAMS_DIR)/*.lxi
 
 # payoff-fixtures: regenerate committed per-theorem payoff GDX(s).
-# Detects compile/execution errors by post-grepping the .lst — `gams` exits 0
-# even on compile errors, so the recipe MUST grep, not rely on exit code alone.
+# Gates on the gams EXIT CODE, the same way compile-gams and test-gams do.
+# Measured on GAMS 54.1: rc=2 on compile error, rc=3 on abort. The previous
+# recipe scraped the o= listing for the compilation/execution status line,
+# a string written only to the LOG stream, which `lo=0 >/dev/null` destroys —
+# so it matched nothing and every run printed OK. GATE-01.
 payoff-fixtures:
 	@mkdir -p $(GAMS_DIR)/$(GAMS_BUILD)
-	@cd $(GAMS_DIR) && rc=0; \
-	for f in $$(find payoff -name 'eta_*.gms' 2>/dev/null | sort); do \
+	@set -e; cd $(GAMS_DIR); rc=0; ok=0; fail=0; \
+	for f in $$(find $(PAYOFF_SRC_DIR) -name '$(PAYOFF_GLOB)' 2>/dev/null | sort); do \
 		out="$(GAMS_BUILD)/$$(echo "$$f" | tr / _ | sed 's/\.gms$$//').lst"; \
 		printf '>> regenerating fixture from %s\n' "$$f"; \
-		$(GAMS) "$$f" action=ce o="$$out" scrdir="$(GAMS_BUILD)" lo=0 >/dev/null 2>&1 ; \
-		if grep -qE 'Status: (Compilation|Execution) error' "$$out"; then \
-			printf '   FAIL %s -> %s/%s (status line indicates error)\n' "$$f" "$(GAMS_DIR)" "$$out"; rc=1; \
+		if $(GAMS) "$$f" action=ce o="$$out" scrdir="$(GAMS_BUILD)" lo=0 >/dev/null 2>&1; then \
+			printf '   OK   %s\n' "$$f"; ok=$$((ok+1)); \
 		else \
-			printf '   OK %s\n' "$$f"; \
+			printf '   FAIL %s  -> %s/%s\n' "$$f" "$(GAMS_DIR)" "$$out"; \
+			sed -n 's/^\*\*\*\* *//p' "$$out" | head -5; \
+			fail=$$((fail+1)); rc=1; \
 		fi; \
 	done; \
+	if [ $$((ok+fail)) -eq 0 ]; then \
+		printf 'payoff-fixtures FAIL: no units matched %s/%s\n' "$(PAYOFF_SRC_DIR)" "$(PAYOFF_GLOB)"; \
+		exit 1; \
+	fi; \
+	printf '\npayoff-fixtures: %s ok, %s failed\n' "$$ok" "$$fail"; \
 	exit $$rc
 
 # spec-preflight: extract code blocks from the rev-4 spec MD into a mirror of
@@ -104,22 +130,23 @@ payoff-fixtures:
 spec-preflight:
 	@rm -rf $(GAMS_DIR)/$(GAMS_BUILD)/spec
 	@mkdir -p $(GAMS_DIR)/$(GAMS_BUILD)/spec/payoff $(GAMS_DIR)/$(GAMS_BUILD)/spec/test
-	@SPEC=docs/specs/2026-06-28-payoff-zero-slippage-design.md; \
+	@set -e; SPEC=$(SPEC_ZS); \
 	ROOT=$(GAMS_DIR)/$(GAMS_BUILD)/spec; \
 	python3 -c "import re; text = open('$$SPEC').read(); secs = re.split(r'^(## \d+\.[^\n]*)\n', text, flags=re.M); body = {n: next((secs[i+1] for i in range(1,len(secs),2) if secs[i].startswith('## %s.' % n)), None) for n in (5,6,7,8)}; missing = [n for n,b in body.items() if b is None]; assert not missing, 'spec sections missing: %s' % missing; blocks = {n: re.search(r'\`\`\`gams\n(.*?)\n\`\`\`', b, re.S) for n,b in body.items()}; missing = [n for n,m in blocks.items() if m is None]; assert not missing, 'no gams code block in sections: %s' % missing; open('$$ROOT/payoff/_PayoffScaffolding.gms','w').write(blocks[5].group(1)); open('$$ROOT/payoff/eta_pi_trader_zero_slippage.gms','w').write(blocks[6].group(1)); open('$$ROOT/PayoffModule.gms','w').write(blocks[7].group(1)); open('$$ROOT/test/PayoffModuleTest.gms','w').write(blocks[8].group(1))"; \
 	cp $(GAMS_DIR)/PricingKernel.gms $(GAMS_DIR)/primitives.gms $(GAMS_DIR)/$(GAMS_BUILD)/spec/; \
-	cd $(GAMS_DIR)/$(GAMS_BUILD)/spec && \
-	$(GAMS) test/PayoffModuleTest.gms action=ce o=run.lst scrdir=. lo=0 >/dev/null 2>&1 ; \
-	if grep -qE 'Status: (Compilation|Execution) error' run.lst; then \
-		printf 'spec-preflight FAIL: see $(GAMS_DIR)/$(GAMS_BUILD)/spec/run.lst\n'; \
-		grep -A1 '^\*\*\*\*' run.lst | head -10; exit 1; \
-	else \
+	cd $(GAMS_DIR)/$(GAMS_BUILD)/spec; \
+	if $(GAMS) test/PayoffModuleTest.gms action=ce o=run.lst scrdir=. lo=0 >/dev/null 2>&1; then \
 		printf 'spec-preflight OK (production layout)\n'; \
+	else \
+		printf 'spec-preflight FAIL: see $(GAMS_DIR)/$(GAMS_BUILD)/spec/run.lst\n'; \
+		sed -n 's/^\*\*\*\* *//p' run.lst | head -10; \
+		exit 1; \
 	fi
 
-# spec-preflight-band: Cycle 2 spec-as-truth gate. Re-runs the sorry/admit grep
+# spec-preflight-band: Cycle 2 spec-as-truth gate. Re-runs the sorry/admit check
 # on the 3 cited theorems in eta.lean BEFORE extracting GAMS code, then mirrors
-# the spec MD into the production layout and drives the band unit.
+# the spec MD into the production layout and drives the band unit. Both legs gate
+# on an EXIT CODE: model/test/lean_sorry_check.sh for Lean, gams itself for GAMS.
 #
 # LEAN4_SPEC_DIR defaults to the lean4-spec submodule at the repo root. Note the
 # path has no `lean/` segment: JMSBPP/cfmm-lean4-spec stores exp/ at ITS root
@@ -128,35 +155,31 @@ LEAN4_SPEC_DIR ?= lean4-spec
 spec-preflight-band:
 	@rm -rf $(GAMS_DIR)/$(GAMS_BUILD)/spec-band
 	@mkdir -p $(GAMS_DIR)/$(GAMS_BUILD)/spec-band/payoff $(GAMS_DIR)/$(GAMS_BUILD)/spec-band/test
-	@LEAN=$(LEAN4_SPEC_DIR)/exp/eta.lean; \
+	@set -e; LEAN=$(LEAN4_SPEC_DIR)/exp/eta.lean; \
 	if [ ! -f "$$LEAN" ]; then \
 		printf 'spec-preflight-band FAIL: %s not found.\n' "$$LEAN"; \
-		printf '  The lean4-spec submodule is not initialized. Run:\n'; \
-		printf '    git submodule update --init lean4-spec\n'; \
+		printf '  Run: git submodule update --init lean4-spec\n'; \
 		printf '  or point LEAN4_SPEC_DIR at a checkout of JMSBPP/cfmm-lean4-spec.\n'; \
 		exit 1; \
 	fi; \
 	for ID in pi_trader_half_strictly_increasing_in_ pi_trader_half_band_min_at_left pi_trader_half_band_max_large_trade; do \
-		START=$$(grep -nE "^theorem $$ID" "$$LEAN" | head -1 | cut -d: -f1); \
-		if [ -z "$$START" ]; then printf 'spec-preflight-band FAIL: theorem %s not found in %s\n' "$$ID" "$$LEAN"; exit 1; fi; \
-		END=$$(awk -v s="$$START" 'NR>s && /^(theorem |lemma |def |noncomputable def |namespace |end )/ {print NR; exit}' "$$LEAN"); \
-		if [ -z "$$END" ]; then END=$$(wc -l < "$$LEAN"); fi; \
-		if sed -n "$${START},$${END}p" "$$LEAN" | grep -vE '^\s*(--|/-)' | grep -qE '\bsorry\b|\badmit\b'; then \
-			printf 'spec-preflight-band FAIL: theorem %s body contains sorry/admit\n' "$$ID"; exit 1; \
+		if ! sh model/test/lean_sorry_check.sh "$$LEAN" "$$ID"; then \
+			printf 'spec-preflight-band FAIL: Lean gate rejected %s\n' "$$ID"; \
+			exit 1; \
 		fi; \
 	done; \
 	printf 'spec-preflight-band: Lean substrate OK (3 theorems sorry/admit-free)\n'
-	@SPEC=docs/specs/2026-06-28-payoff-band-monotone-large-design.md; \
+	@set -e; SPEC=$(SPEC_BAND); \
 	ROOT=$(GAMS_DIR)/$(GAMS_BUILD)/spec-band; \
 	python3 -c "import re; text = open('$$SPEC').read(); secs = re.split(r'^(## \d+\.[^\n]*)\n', text, flags=re.M); body6 = next((secs[i+1] for i in range(1,len(secs),2) if secs[i].startswith('## 6.')), None); assert body6 is not None, 'spec section missing: ## 6.'; m6 = re.search(r'\`\`\`gams\n(.*?)\n\`\`\`', body6, re.S); assert m6 is not None, 'no gams code block in section: ## 6.'; open('$$ROOT/payoff/eta_pi_trader_band_monotone_large.gms','w').write(m6.group(1))"; \
 	cp $(GAMS_DIR)/PricingKernel.gms $(GAMS_DIR)/primitives.gms $(GAMS_DIR)/$(GAMS_BUILD)/spec-band/; \
 	cp $(GAMS_DIR)/payoff/_PayoffScaffolding.gms $(GAMS_DIR)/$(GAMS_BUILD)/spec-band/payoff/; \
 	cp $(GAMS_DIR)/test/PayoffBandMonotoneLargeTest.gms $(GAMS_DIR)/$(GAMS_BUILD)/spec-band/test/; \
-	cd $(GAMS_DIR)/$(GAMS_BUILD)/spec-band && \
-	$(GAMS) test/PayoffBandMonotoneLargeTest.gms action=ce o=run.lst scrdir=. lo=0 >/dev/null 2>&1 ; \
-	if grep -qE 'Status: (Compilation|Execution) error' run.lst; then \
-		printf 'spec-preflight-band FAIL: see $(GAMS_DIR)/$(GAMS_BUILD)/spec-band/run.lst\n'; \
-		grep -A1 '^\*\*\*\*' run.lst | head -10; exit 1; \
+	cd $(GAMS_DIR)/$(GAMS_BUILD)/spec-band; \
+	if $(GAMS) test/PayoffBandMonotoneLargeTest.gms action=ce o=run.lst scrdir=. lo=0 >/dev/null 2>&1; then \
+		printf 'spec-preflight-band OK (Lean sorry/admit gate + GAMS extract+compile+execute)\n'; \
 	else \
-		printf 'spec-preflight-band OK (Lean sorry-grep + GAMS extract+compile+execute)\n'; \
+		printf 'spec-preflight-band FAIL: see $(GAMS_DIR)/$(GAMS_BUILD)/spec-band/run.lst\n'; \
+		sed -n 's/^\*\*\*\* *//p' run.lst | head -10; \
+		exit 1; \
 	fi
