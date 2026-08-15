@@ -19,7 +19,7 @@ blind**. The false-pass defect is confined to `payoff-fixtures`, `spec-preflight
 go stale silently, proof gates are vacuous), but narrower than "all green is uninformative",
 which overstated the blast radius.
 
-- [ ] **GATE-01**: `payoff-fixtures`, `spec-preflight`, and `spec-preflight-band` exit non-zero whenever `gams` exits non-zero, verified by a **committed** deliberately-broken fixture that must redden each target on every run. They currently grep the `o=` listing for `Status: (Compilation|Execution) error`, a string only ever written to the log stream, which `lo=0 >/dev/null` destroys — and the `;` before `if` discards the exit code. The Makefile's stated premise ("gams exits 0 even on compile errors") is false: measured rc=2 on compile error, rc=3 on abort.
+- [x] **GATE-01**: `payoff-fixtures`, `spec-preflight`, and `spec-preflight-band` exit non-zero whenever `gams` exits non-zero, verified by a **committed** deliberately-broken fixture that must redden each target on every run. They currently grep the `o=` listing for `Status: (Compilation|Execution) error`, a string only ever written to the log stream, which `lo=0 >/dev/null` destroys — and the `;` before `if` discards the exit code. The Makefile's stated premise ("gams exits 0 even on compile errors") is false: measured rc=2 on compile error, rc=3 on abort.
 - [ ] **GATE-02**: `abort.noError` appears in no source, enforced by an automated check — it halts execution silently at rc=0 with no status line.
 - [ ] **GATE-03**: every `Solve` statement asserts **`solveStat`** in addition to `modelStat`. Corrected: both existing `Solve`s already assert `modelStat`, and the claimed `modelStat=19` at rc=0 could not be reproduced (baseline modelStat 2/rc=0; injected infeasibility modelStat 4/rc=3). The real gap is a solver terminating **abnormally** while reporting an acceptable `modelStat` — that passes today.
 - [ ] **GATE-04**: `execute` and `$call` failures fail the build, via `execute.checkErrorLevel` and `$call.checkErrorLevel` respectively — noting `$onCheckErrorLevel` governs `$call` only, not `execute`.
@@ -221,7 +221,7 @@ which are not second mappings.
 
 | Requirement | Phase | Status | Note |
 |-------------|-------|--------|------|
-| GATE-01 | Phase 0 — Honest gates | Pending |  |
+| GATE-01 | Phase 0 — Honest gates | Complete |  |
 | GATE-02 | Phase 0 — Honest gates | Pending |  |
 | GATE-03 | Phase 0 — Honest gates | Pending | `solveStat` is the gap; `modelStat` is already asserted by both existing `Solve`s. `assertModelOptimal` macro is a Phase 2 deliverable |
 | GATE-04 | Phase 0 — Honest gates | Pending | `$onCheckErrorLevel` covers `$call` only — `execute` needs its own rule |

@@ -42,3 +42,20 @@ Out-of-scope discoveries logged rather than fixed, per the execution scope bound
 - **What:** `compile-gams: 12 ok` includes a unit that compiles and does nothing. The count is a
   regression pin, not a goal. Phase 4 replaces the unit and the count is expected to change.
 - **Action:** none in Phase 0. Do not treat `12` as a target to preserve after Phase 4.
+
+## From plan 00-02
+
+### D3. `LM-GREP-PREDICATE` is token-based — near-neighbour scrapes are not caught
+
+- **Found:** plan 00-02, task 2.
+- **What:** `lint-make`'s structural check keys on the literal token `grep`. A listing scrape in a
+  pass/fail position written with `awk '/Status:/{exit 1}'`, a `case` pattern, or
+  `sed -n '/Status:/p' … ; test -s` would pass `lint-make` today. The exact idiom that produced
+  GATE-01 is caught; its near neighbours are not.
+- **Why not fixed here:** broadening the pattern set needs its own committed mutants (one per
+  added idiom) or the widened check is itself unfalsifiable — and a widened set risks flagging the
+  legitimate post-decision `sed -n 's/^\*\*\*\* *//p'` message extraction the repaired recipes use.
+- **Proposed fix:** add `awk`/`case`/`test -s` variants to `PREDICATE_PATTERNS`, one committed
+  `model/test/_mutants/make/*.mk` and one registry row per variant, plus a `positive` row asserting
+  the repaired `payoff-fixtures` recipe still passes (so the widened check cannot be tuned until it
+  flags the legitimate extraction).

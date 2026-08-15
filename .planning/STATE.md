@@ -12,28 +12,29 @@ See: .planning/PROJECT.md (updated 2026-07-27)
 ## Current Position
 
 Phase: 0 of 11 (Honest gates)
-Plan: 1 of 4 in current phase (00-01 complete)
-Status: In progress — negative-control substrate landed; 00-02/03/04 pending
-Last activity: 2026-08-15 — 00-01 executed on `gsd/phase-0-honest-gates`: `make negative-controls`, the `_mutants/` tree, the append-only registry, and the `-include mk/*.mk` point
+Plan: 2 of 4 in current phase (00-01, 00-02 complete)
+Status: In progress — GATE-01 met and TEST-09 substrate hardened; 00-03/00-04 pending
+Last activity: 2026-08-15 — 00-02 executed on `gsd/phase-0-honest-gates`: exit-code-only gating in `payoff-fixtures`/`spec-preflight`/`spec-preflight-band`, `make lint-make` (shellcheck 0.11.0), 5 committed mutants, 14 new registry rows (18 total), and deferred item **D1 closed**
 
-Progress: [░░░░░░░░░░] 2% (1/54 plans; Phase 9 plan count TBD)
+Progress: [░░░░░░░░░░] 4% (2/54 plans; Phase 9 plan count TBD)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 1
-- Average duration: 6 min
-- Total execution time: 0.1 hours
+- Total plans completed: 2
+- Average duration: 8.5 min
+- Total execution time: 0.3 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | Phase 00 P01 | 1 | 6 min (3 tasks, 8 files) | 6 min |
+| Phase 00 P02 | 1 | 11 min (4 tasks, 12 files) | 11 min |
 
 **Recent Trend:**
-- Last 5 plans: 00-01 (6 min)
-- Trend: —
+- Last 5 plans: 00-01 (6 min), 00-02 (11 min)
+- Trend: — (00-02 carried a 4th unplanned task, the D1 closure)
 
 *Updated after each plan completion*
 
@@ -44,6 +45,24 @@ Progress: [░░░░░░░░░░] 2% (1/54 plans; Phase 9 plan count TB
 Full log in PROJECT.md Key Decisions. Decisions taken during roadmapping (later revs
 supersede earlier ones where they differ):
 
+- [Phase 0, plan 00-02]: **A `negative` row expecting `nonzero` accepts EVERY reason for failing —
+  including "the artifact under test is gone".** This was the D1 false pass: deleting
+  `registry.selftest.tsv` made the runner exit 2 ("does not exist"), which the row accepted, so
+  `make negative-controls` stayed green (measured `16 entries, 0 failed`, rc=0) with the proof of
+  its own falsifiability deleted. **Rule: whenever a negative row's command reads a committed
+  artifact, pair it with a `positive` row asserting that artifact is present AND intact.** D1 is
+  closed by `nc-selftest-file-present` + `nc-selftest-entry-count`; both were observed to fail.
+- [Phase 0, plan 00-02]: **A glob matching zero units FAILS.** A second false pass, independent of
+  the listing scrape: `payoff-fixtures` over an empty glob printed nothing and exited 0. The guard
+  is now in `payoff-fixtures`, `compile-gams` and `test-gams`.
+- [Phase 0, plan 00-02]: **`lint-make` enumerates from `make --print-data-base`, not from a list.**
+  A new target cannot escape review by not registering itself; `negative-controls` and `lint-make`
+  are both inside their own scope, so the circularity does not re-enter one level up. The price:
+  every compound recipe line must begin `set -e;` (enforced by LM-SET-E) or `lint-make` reddens.
+- [Phase 0, plan 00-02]: **A missing tool is a failure, never a skip.**
+  `make lint-make SHELLCHECK=/nonexistent/shellcheck` prints `shellcheck not found` and exits
+  non-zero. `make tools-shellcheck` bootstraps shellcheck **0.11.0** (koalaman static tarball) into
+  the gitignored `.tools/`; a CI job adding `lint-make` must call it first.
 - [Phase 0, plan 00-01]: **A registry row whose command is `make …` must use
   `expect = nonzero`, never an exact code.** Measured: GNU make reports *any* recipe failure as
   its own exit status **2**, so `negative_controls.py`'s exit 1 is never observable through
@@ -199,28 +218,36 @@ None yet. (`.planning/todos/pending/` not created)
 
 ### Blockers/Concerns
 
-- **[Phase 0 — one false-pass mode survives 00-01, for 00-02 to close]** The registry row
-  `nc-runner-selftest-registry` expects `nonzero` from
-  `make negative-controls REGISTRY=model/test/_mutants/registry.selftest.tsv`. **If that selftest
-  file were deleted**, the runner would exit 2 ("registry does not exist") — still non-zero — and
-  the row would still report PASS. Deleting the runner's own falsifiability proof therefore keeps
-  `make negative-controls` green. Closing it needs a 5th row (a `positive` row asserting the file
-  exists, ideally plus an entry-count pin), which 00-01 could not add without breaking its own
-  literal `4 entries` criterion. Recorded in
-  `.planning/phases/00-honest-gates/deferred-items.md` (D1).
-- **[Phase 0 — blocks everything, but SCOPED]** The false-pass defect is confined to the
-  three grep-based targets: `payoff-fixtures` (Makefile:78), `spec-preflight` (99),
-  `spec-preflight-band` (143). **`compile-gams` (30) and `test-gams` (53) gate correctly** —
-  they use `if $(GAMS) …; then`, verified by live mutation (an injected failing `abort$`
-  makes `test-gams` return rc=2). CI runs only those two, so **CI is not blind**. Rev 1's
-  "no phase's green is evidence of anything" overstated the blast radius and is withdrawn.
-  What *is* true: fixtures go stale silently and the proof gates are vacuous.
-- **[Phase 0 — the repair must not be circular]** `gate-selftest`/`negative-controls` will be
-  written in the same `make` idiom that produced the bug. Resolved three ways: exit codes
-  only as the predicate (never `grep` — proven sufficient, gams returns 2 on compile error
-  and 3 on abort); a **committed** deliberately-broken fixture per target so the negative
-  direction re-runs forever; and `set -e`-clean recipes reviewed by `shellcheck` via
-  `make lint-make`, itself a committed target.
+- **[Phase 0 — D1 CLOSED by 00-02]** The `nc-runner-selftest-registry` false pass (deleting
+  `registry.selftest.tsv` left `make negative-controls` green) was reproduced — `16 entries,
+  0 failed`, rc=0 — and closed by two `positive` rows. Re-measured after the fix: proof absent →
+  `18 entries, 2 failed`, rc=2; proof restored → `18 entries, 0 failed`, rc=0; proof gutted to one
+  row → `nc-selftest-entry-count` FAIL, rc=2. See `deferred-items.md` D1 and
+  `model/test/README-negative-controls.md`.
+- **[Phase 0 — GATE-01 MET by 00-02]** The false-pass defect in the three listing-scraping targets
+  is repaired: `payoff-fixtures`, `spec-preflight` and `spec-preflight-band` now gate on
+  `if $(GAMS) …; then`, the token `grep` no longer appears anywhere in the Makefile, and five
+  committed mutants redden them on every `make negative-controls`. A second false pass found and
+  closed on the way: a glob matching zero units used to print nothing and exit 0. **The scoping
+  correction stands** — `compile-gams` and `test-gams` always gated correctly and CI runs only
+  those two, so CI was never blind; what was true is that fixtures went stale silently and the
+  proof gates were vacuous. Remaining Phase 0 work is GATE-02…07 (plans 00-03, 00-04).
+- **[Phase 0 — the repair was not circular, and here is exactly how far that goes]** Three
+  mechanisms, all shipped: exit codes as the only predicate; a committed deliberately-broken
+  fixture per target so the negative direction re-runs forever; and `make lint-make`, which pulls
+  recipe bodies from `make --print-data-base` and reviews them with shellcheck 0.11.0 on
+  SC2181/SC2015. **Honest limits:** `LM-GREP-PREDICATE` is token-based, so an `awk`/`case`/`test
+  -s` scrape in a predicate position would still pass (logged as D3); and `lint-make`'s first run
+  reported 0 findings because the anticipated SC2181 was fixed preemptively — the shellcheck leg
+  was therefore proven able to fire on a throwaway probe (SC2181 + SC2015 both reported) before
+  that green was accepted.
+- **[Phase 0 — a tool that corrupts the artifact it updates]** `gsd-tools roadmap
+  update-plan-progress 0` **damaged `.planning/ROADMAP.md`**: there is no per-phase plan-progress
+  table in that file, so it overwrote the Requirement Coverage row `| 0 — Honest gates | GATE-01
+  … | 8 |` with `| 0 — Honest gates | 2/4 | In Progress|` and swallowed the start of the Phase 1
+  row. Repaired by hand and verified by diff. Also `gsd-tools state advance-plan` cannot parse this
+  STATE.md ("Cannot parse Current Plan or Total Plans"). **Later plans should update ROADMAP.md and
+  STATE.md by hand and diff the result, not trust these two subcommands.**
 - **[Phase 0 — `gams-gate` exists already]** Corrected: the environment was **auto-created
   2026-07-27 by the first workflow run**, not deliberately, and has **0 protection rules**
   and **0 runners**. GATE-06's work is *configuring* an environment that is already there.
@@ -318,7 +345,12 @@ None yet. (`.planning/todos/pending/` not created)
 ## Session Continuity
 
 Last session: 2026-08-15
-Stopped at: Completed 00-01-PLAN.md on branch `gsd/phase-0-honest-gates` (commits `434062a`, `1e5a6ca`, `6df3dbf`). `make negative-controls` runs 4 seeded rows green; the runner is proven able to fail by `registry.selftest.tsv`; baselines re-verified at `compile-gams: 12 ok, 0 failed, 0 skipped` and `test-gams: 4 passed, 0 failed`. Next: 00-02 (which should also close deferred item D1).
-Resume file: .planning/phases/00-honest-gates/00-01-SUMMARY.md
+Stopped at: Completed 00-02-PLAN.md on branch `gsd/phase-0-honest-gates` (commits `514741f`, `88534fc`, `0ffe6b2`, `77e98f6`). GATE-01 met; D1 closed. Four gates re-verified at the end: `compile-gams: 12 ok, 0 failed, 0 skipped`; `test-gams: 4 passed, 0 failed`; `lint-make: 9 recipes, 0 findings`; `negative-controls: 18 entries, 0 failed`. `git status --short -- 'model/*.gdx'` empty — both fixtures regenerate byte-identical. Next: 00-03 (GATE-02/03/04).
+Resume file: .planning/phases/00-honest-gates/00-02-SUMMARY.md
+
+**Uncommitted on purpose:** `.planning/ROADMAP.md` carries 3 unrelated pending GATE-07 wording
+edits from a prior session (plus 00-02's Phase-0 plan checkmarks), and `.planning/config.json` is
+modified. 00-02 deliberately did not commit either file so those edits are not swept into its
+history. Whoever owns the GATE-07 wording should commit them.
 
 Prior session (2026-07-30): ROADMAP.md rev 5 and STATE.md written; REQUIREMENTS.md traceability rebuilt (84/84 across 12 phases). **The two-step review gate has still never passed on that artifact** — rev 5 fixes two defects (N3, the PROG-01 mis-citation) that only a review found, in a document revised five times without one.
