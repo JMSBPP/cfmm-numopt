@@ -62,3 +62,41 @@ lean-sorry-check:
 		printf 'usage: make lean-sorry-check MODULE=<file> THEOREM=<name>\n'; exit 3; \
 	fi; \
 	sh model/test/lean_sorry_check.sh "$(MODULE)" "$(THEOREM)"
+
+# ── GATE-06: is CI reachable, and can the gate actually gate? ───────────────
+# The environment ALREADY EXISTS -- measured: it was auto-created
+# 2026-07-27T23:24:41Z by the first workflow run, not deliberately, with 0
+# protection rules and 0 runners. FINDING IT PRESENT IS NOT THE CRITERION BEING
+# MET. Both legs are probed and both must be satisfied.
+#
+# Ordering is load-bearing: protection rules BEFORE any runner is registered. A
+# PUBLIC repo + a self-hosted runner + an inert environment gate is the fork-PR
+# arbitrary-code-execution scenario, and .github/workflows/gams.yml's `approve`
+# job is the only thing that blocks BEFORE untrusted code is checked out.
+GH_REPO ?= JMSBPP/cfmm-gams
+
+.PHONY: ci-selftest
+
+ci-selftest:
+	@set -e; \
+	rules=$$(gh api repos/$(GH_REPO)/environments/gams-gate --jq '.protection_rules|length'); \
+	case "$$rules" in \
+		''|*[!0-9]*) printf 'ci-selftest FAIL: protection_rules probe returned %s, not a count\n' "'$$rules'"; exit 1;; \
+	esac; \
+	printf 'gams-gate protection_rules: %s\n' "$$rules"; \
+	if [ "$$rules" -lt 1 ]; then \
+		printf 'ci-selftest FAIL: gams-gate has 0 protection rules. A PUBLIC repo with a\n'; \
+		printf '  self-hosted runner behind an inert gate is the fork-PR arbitrary-code\n'; \
+		printf '  execution scenario. Add a required reviewer BEFORE registering a runner.\n'; \
+		exit 1; \
+	fi; \
+	runners=$$(gh api repos/$(GH_REPO)/actions/runners --jq '.total_count'); \
+	case "$$runners" in \
+		''|*[!0-9]*) printf 'ci-selftest FAIL: runners probe returned %s, not a count\n' "'$$runners'"; exit 1;; \
+	esac; \
+	printf 'self-hosted runners: %s\n' "$$runners"; \
+	if [ "$$runners" -lt 1 ]; then \
+		printf 'ci-selftest FAIL: 0 runners registered -- the gams job can never start.\n'; \
+		exit 1; \
+	fi; \
+	printf 'ci-selftest OK (%s protection rule(s), %s runner(s))\n' "$$rules" "$$runners"

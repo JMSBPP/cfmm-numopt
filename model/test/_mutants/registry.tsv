@@ -106,3 +106,16 @@ nc-lean-preflight-band-sorry	negative	nonzero	make spec-preflight-band LEAN4_SPE
 # integrity: the sorries must still be there and exp/eta.lean must still declare
 # all four cited ids.
 nc-lean-mutants-present	positive	0	test "$(grep -c '^[[:space:]]*sorry$' model/test/_mutants/lean/SorryFixture.lean)" -eq 2 && test "$(grep -c '^[[:space:]]*sorry$' model/test/_mutants/lean/exp/eta.lean)" -eq 4 && test "$(grep -c 'theorem pi_trader_half_' model/test/_mutants/lean/exp/eta.lean)" -eq 4	both Lean mutants EXIST and still carry their real sorries and all four cited declaration ids; deleting or gutting one must not leave the suite green (D1 rule)
+# ── GATE-06 controls (plan 00-04) ─────────────────────────────────────────
+# nc-ci-selftest-positive is RED until a self-hosted runner is registered (the
+# task-4 checkpoint). That redness is the correct report, not a defect to be
+# worked around: GATE-06 is not met until the gams job can actually run. Do not
+# delete this row, change its expect, or comment it out.
+nc-ci-selftest-positive	positive	0	make ci-selftest	the gams-gate environment has at least one protection rule AND at least one runner
+nc-ci-selftest-badrepo	negative	nonzero	make ci-selftest GH_REPO=JMSBPP/this-repo-does-not-exist	ci-selftest fails loudly when the probes cannot be answered, rather than reporting a green it did not earn
+# D1's rule applied to nc-ci-selftest-badrepo: it accepts `nonzero`, and an
+# unauthenticated or absent `gh` also fails, so it would pass with the probe
+# itself broken. The row below is the standing control for the RULES leg alone --
+# it is green today and reddens if the required reviewer is ever removed, which
+# is the half of GATE-06 that IS met.
+nc-ci-gate-armed	positive	0	test "$(gh api repos/JMSBPP/cfmm-gams/environments/gams-gate --jq '.protection_rules|length')" -ge 1	the gams-gate environment still carries at least one protection rule; removing the required reviewer must redden the suite even while the runner leg is open
