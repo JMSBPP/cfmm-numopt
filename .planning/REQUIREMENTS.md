@@ -25,7 +25,7 @@ which overstated the blast radius.
 - [ ] **GATE-04**: `execute` and `$call` failures fail the build, via `execute.checkErrorLevel` and `$call.checkErrorLevel` respectively — noting `$onCheckErrorLevel` governs `$call` only, not `execute`.
 - [ ] **GATE-05**: a committed GDX fixture is provably fresh — regenerating from a clean tree either reproduces it or fails loudly. Scope honestly: `model/price_impact_kernel.gdx` currently has **no regeneration path at all** (`payoff-fixtures` globs only `payoff/eta_*.gms`), so either a producer is built or that fixture is recorded as knowingly unversioned.
 - [ ] **GATE-06**: CI is reachable — the `gams-gate` environment has ≥1 required reviewer (`gh api …/environments/gams-gate --jq '.protection_rules|length'` ≥ 1) **and** ≥1 self-hosted runner is registered, with one workflow run reaching the `gams` job and completing. Measured today: the environment exists but has **0 protection rules** (the approval job completed in 2 s and gates nothing) and **0 runners** (the only run ever was cancelled after 24 h). Ordering is load-bearing: **add the protection rules before registering a runner**, or a public repo with a self-hosted runner and an inert gate is the fork-PR arbitrary-execution scenario.
-- [ ] **GATE-07**: `make lean-sorry-check MODULE=<file> THEOREM=<name>` handles arbitrary indentation and namespace nesting, with a committed negative control (a fixture theorem carrying a real `sorry`) that must redden. The existing gate is hardcoded to three `exp/eta.lean` IDs with a **column-0-anchored** `grep -nE "^theorem $ID"`; all 134 `vol_markets` theorems are indented inside namespaces, so it matches **zero** of them, and its column-0 `awk` body-extraction would attribute a later `sorry` to the wrong theorem.
+- [ ] **GATE-07**: `make lean-sorry-check MODULE=<file> THEOREM=<name>` handles arbitrary indentation and namespace nesting, with a committed negative control (a fixture theorem carrying a real `sorry`) that must redden. The existing gate is hardcoded to three `exp/eta.lean` IDs with a **column-0-anchored** `grep -nE "^theorem $ID"`; **six `vol_markets` modules declare `lemma`, not `theorem`** — FeeSchedule (24), VolInstrument (36), RiskDesign (21), Flow (12), PosSpec (12), GeomProfile (11), each with **zero** column-0 `theorem`s — so `^theorem $ID` matches none of them. **Corrected:** the earlier claim that they are *indented inside namespaces* is false (measured: indented-theorem count is **0** across all 12 files); the mechanism is the keyword, not the column, and a fix targeting indentation would not work, and its column-0 `awk` body-extraction would attribute a later `sorry` to the wrong theorem.
 
 ### Representation Kernel
 
@@ -214,8 +214,8 @@ match `Shocks` — *this is the differential test*.
 
 ## Traceability
 
-Rebuilt during roadmap revision (**rev 4**, 2026-07-30) after the deliverable was reframed:
-the GAMS layer **solves** the convex programs, it does not only verify theorems.
+Rebuilt during roadmap revision (**rev 5**, 2026-07-30): 17 previously-unmapped requirements
+placed, and the roadmap extended with Phases 10–11 for the volume-path work.
 Every v1 requirement maps to **exactly one** phase. Notes record cross-phase consumers,
 which are not second mappings.
 
@@ -223,78 +223,95 @@ which are not second mappings.
 |-------------|-------|--------|------|
 | GATE-01 | Phase 0 — Honest gates | Pending |  |
 | GATE-02 | Phase 0 — Honest gates | Pending |  |
-| GATE-03 | Phase 0 — Honest gates | Pending | `solveStat` is the gap; `modelStat` is already asserted by both existing `Solve`s. Reusable `assertModelOptimal` macro is a Phase 2 TEST-01 deliverable |
+| GATE-03 | Phase 0 — Honest gates | Pending | `solveStat` is the gap; `modelStat` is already asserted by both existing `Solve`s. `assertModelOptimal` macro is a Phase 2 deliverable |
 | GATE-04 | Phase 0 — Honest gates | Pending | `$onCheckErrorLevel` covers `$call` only — `execute` needs its own rule |
-| GATE-05 | Phase 0 — Honest gates | Pending | Scoped to the two producible payoff fixtures; `price_impact_kernel.gdx` has no producer (fund one or record as unversioned). First genuinely exercised by Phase 1's re-baseline |
-| GATE-06 | Phase 0 — Honest gates | Pending | The environment already EXISTS (auto-created 2026-07-27 by the first workflow run) with 0 rules and 0 runners — the work is configuring, not creating. Protection rules BEFORE runner registration |
-| GATE-07 | Phase 0 — Honest gates | Pending | Phase 5 criterion 4 and Phase 8 criterion 1 are both claims about this artifact, so it must exist first. `make spec-preflight` runs no Lean grep at all today |
-| TEST-09 | Phase 0 — Honest gates | Pending | Moved to Phase 0 (not Phase 2): Phase 0's own criteria are stated against `make negative-controls` |
+| GATE-05 | Phase 0 — Honest gates | Pending | Scoped to the two producible payoff fixtures; `price_impact_kernel.gdx` has no producer. Also carries Phase 11's exact-Q96-table regeneration (VPATH-13a) |
+| GATE-06 | Phase 0 — Honest gates | Pending | Environment already EXISTS (auto-created 2026-07-27) with 0 rules and 0 runners — the work is configuring, not creating. Protection rules BEFORE runner registration |
+| GATE-07 | Phase 0 — Honest gates | Pending | Phase 5 c4 and Phase 8 c1 are both claims about this artifact. `make spec-preflight` runs no Lean grep at all today |
+| TEST-09 | Phase 0 — Honest gates | Pending | Phase 0's own criteria are stated against `make negative-controls`, so it cannot come later than its first consumer |
 | REPR-01 | Phase 1 — Representation kernel + spine | Pending |  |
 | REPR-02 | Phase 1 — Representation kernel + spine | Pending |  |
-| REPR-03 | Phase 1 — Representation kernel + spine | Pending | Consumed by PROG-05 — the int24 range is one of the bounds a solved parameter must round-trip through |
+| REPR-03 | Phase 1 — Representation kernel + spine | Pending | Consumed by PROG-05 (Phase 8) and by VPATH-06's int24/uint160 widths (Phase 10) |
 | REPR-04 | Phase 1 — Representation kernel + spine | Pending |  |
-| REPR-05 | Phase 1 — Representation kernel + spine | Pending | Δᵢ=200 reachability is what makes `riskNeutral_corner`'s corner expressible for SOLVE-04a; also a PROG-05 bound |
-| REPR-06 | Phase 1 — Representation kernel + spine | Pending | Two regimes, two committed controls: loud (`a*a` at 1e299, rc=3) and silent (`power(10,400)`, rc=0) |
+| REPR-05 | Phase 1 — Representation kernel + spine | Pending | Δᵢ=200 reachability makes `riskNeutral_corner`'s corner expressible for SOLVE-04a; also a PROG-05 bound |
+| REPR-06 | Phase 1 — Representation kernel + spine | Pending | **N3 FIXED in rev 5:** the sentinel is checked against a committed `saturation.pin`, NOT against `exp(1000)` recomputed — rev 4's guard was a tautology and could never fire |
 | REPR-07 | Phase 1 — Representation kernel + spine | Pending | **BLOCKED on cfmm-gams#1.** If unanswered, record both candidate readings + an `abort$` on undeclared assumption — do not guess |
-| REPR-08 | Phase 1 — Representation kernel + spine | Pending | Enforced by mutation proof (TEST-09 registry in Phase 1, TEST-08 lint from Phase 2) — the read-existence lint is already gamed |
-| REPR-09 | Phase 1 — Representation kernel + spine | Pending | First plan of Phase 1 (REPR-01/REPR-06 are its corollaries); consumed by DATA-06 and by PROG-05's 53-bit ceiling; enforced via Phase 0's `rules.tsv` |
-| REPR-10 | Phase 1 — Representation kernel + spine | Pending | **The Core Value made executable.** 181-point grid comparison (immediate), `TickMathReplica.gms` (independent of `lambda`), retirement of the comment-only and tautological bridges |
-| REPR-11 | Phase 1 — Representation kernel + spine | Pending | `assertAdd0Branch` restored to the TEST-01 macro list |
-| TEST-01 | Phase 2 — Test architecture | Pending | Macro list includes `assertAdd0Branch` (REPR-11) and `assertEvmExpressible` (shipped here, first REQUIRED by PROG-05 in Phase 8) |
-| TEST-02 | Phase 2 — Test architecture | Pending |  |
+| REPR-08 | Phase 1 — Representation kernel + spine | Pending | Enforced by mutation proof, not a read-existence lint (already gamed). Its lesson is applied verbatim by VPATH-07's non-export rule |
+| REPR-09 | Phase 1 — Representation kernel + spine | Pending | First plan of Phase 1; consumed by DATA-06, PROG-05's 53-bit ceiling, and VPATH-13's `>2^53` emission lint |
+| REPR-10 | Phase 1 — Representation kernel + spine | Pending | **The Core Value made executable.** Leg (b) CORRECTED in rev 5: the reference is a committed EXACT TABLE generated outside GAMS, not `TickMathReplica.gms` code — GAMS floats cannot carry Q96 (2^44 spacing). **This is the same table VPATH-13 consumes in Phase 11 — one artifact, built here** |
+| REPR-11 | Phase 1 — Representation kernel + spine | Pending | `assertAdd0Branch` restored to the TEST-01 macro list; `priceImpactKernel_Add0` is reused by VPATH-01 |
+| TEST-01 | Phase 2 — Test architecture | Pending | Macro list includes `assertAdd0Branch` (REPR-11) and `assertEvmExpressible` (first REQUIRED by PROG-05 in Phase 8) |
+| TEST-02 | Phase 2 — Test architecture | Pending | Its exponent-dependent rule governs Phase 10's terminal targets and Phase 11's replay tolerance contract — a flat 1e-12 is banned there too |
 | TEST-03 | Phase 2 — Test architecture | Pending | Proof mutant: the measured residual 1.73334e-33 scaled by 1e6 still passes under `zeroTolerance`, must redden under `absFloor` |
-| TEST-04 | Phase 2 — Test architecture | Pending | `registry.tsv`, one entry per line, append-only (M7); carries THREE columns — VOL-00 tier, VOL-0B provenance, PROG-00 certificate |
-| TEST-05 | Phase 2 — Test architecture | Pending | 'green with CONOPT absent' is uncheckable — replaced by a no-`Solve`-in-pure-tier lint plus a nonexistent-solver fixture exercising the reason string |
-| TEST-06 | Phase 2 — Test architecture | Pending | gdxdiff rc table recorded (0/1/2/3); `rc != 0` kept as the conservative predicate, conflation noted |
+| TEST-04 | Phase 2 — Test architecture | Pending | `registry.tsv`, one entry per line, append-only (M7); THREE columns — VOL-00 tier, VOL-0B provenance, PROG-00 certificate |
+| TEST-05 | Phase 2 — Test architecture | Pending | 'green with CONOPT absent' is uncheckable — replaced by a no-`Solve`-in-pure-tier lint plus a nonexistent-solver fixture |
+| TEST-06 | Phase 2 — Test architecture | Pending | gdxdiff rc table recorded (0/1/2/3); `rc != 0` conservative predicate, conflation noted |
 | TEST-07 | Phase 2 — Test architecture | Pending |  |
-| TEST-08 | Phase 2 — Test architecture | Pending | Applied retroactively to every existing `abort$` in this phase. Its most consequential downstream use is PROG-03's bound-as-optimum guard, which must ship a unit that deliberately triggers it |
-| VOL-00 | Phase 2 — Test architecture | Pending | Moved to Phase 2 (not Phase 5): the tier column is assertion vocabulary, and SOLVE-04a/04b consume it in Phase 3 |
-| VOL-0B | Phase 2 — Test architecture | Pending | Placed with VOL-00, not VOL-0A: `registry.tsv` schema + a standing lint, first consumed by Phase 4's DATA-11. Roadmap judgement call 7 |
-| PROG-00 | Phase 2 — Test architecture | Pending | **Placed with VOL-00/VOL-0B, not with the programs it governs** (roadmap judgement call 9): a third `registry.tsv` column (`certificate`) plus a lint reddening a `Solve` with a blank cell, and a pre-Phase-8 consumer in Phase 3's SOLVE-04a/04b, which is exactly a certificate question. A program with no certificate is asserted as a limit, not solved |
-| SOLVE-01 | Phase 3 — The (Delta_i, eta) solve | Pending | No speedup claim (the 14× figure was measured over 200 solves, menu is 4). No demo-license size assert — it could never fire |
-| SOLVE-02 | Phase 3 — The (Delta_i, eta) solve | Pending | Its tie machinery interacts with PROG-02's bang-bang corner extraction — flagged as a Phase 8 research question |
+| TEST-08 | Phase 2 — Test architecture | Pending | Applied retroactively to every existing `abort$`. Its most consequential downstream uses are PROG-03's bound-as-optimum guard and REPR-06's pin check — both must ship units that deliberately trigger them |
+| VOL-00 | Phase 2 — Test architecture | Pending | Tier column is assertion vocabulary; SOLVE-04a/04b consume it in Phase 3 |
+| VOL-0B | Phase 2 — Test architecture | Pending | `registry.tsv` schema + a standing lint, first consumed by Phase 4's DATA-11. Roadmap judgement call 7 |
+| PROG-00 | Phase 2 — Test architecture | Pending | **CORRECTED in rev 5 — three separate obligations.** (a) EXISTENCE (compactness+continuity, or coercivity+closedness) is the ONLY thing licensing a `Solve`; (b) UNIQUENESS (strict convexity) licenses reporting a POINT and does NOT establish existence — `exp` on ℝ is strictly convex and attains no infimum, and rev 4's taxonomy contained that error; (c) CONVERGENCE — multi-start from committed distinct points, since `mevMulti_exists_min_compact` needs only IsCompact+Nonempty (no convexity of Θ) and CONOPT is local. The lint now checks objective symbol AND direction match, which is what catches PROG-01's mis-citation |
+| SOLVE-01 | Phase 3 — The (Delta_i, eta) solve | Pending | No speedup claim (14× was over 200 solves, menu is 4). No demo-license size assert — it could never fire |
+| SOLVE-02 | Phase 3 — The (Delta_i, eta) solve | Pending | Its tie machinery interacts with PROG-02's bang-bang corner extraction — a Phase 8 research question |
 | SOLVE-03 | Phase 3 — The (Delta_i, eta) solve | Pending |  |
-| SOLVE-04a | Phase 3 — The (Delta_i, eta) solve | Pending | THEOREM tier — value only, at ≥1e-9 relative, after `objScale`. PROG-00 certificate: corner attainment at γ=0 |
-| SOLVE-04b | Phase 3 — The (Delta_i, eta) solve | Pending | INFERENCE tier — separate unit, explicit `θ.b > 0` guard, tag lint + guard-removal mutant. PROG-00 certificate: explicitly ABSENT, which is why it is inference |
-| SOLVE-05 | Phase 3 — The (Delta_i, eta) solve | Pending | Scoping PROVISIONAL under the constant-`w` premise, enforced by `make check-wstate` (v2 WSTATE-01) |
-| SOLVE-06 | Phase 3 — The (Delta_i, eta) solve | Pending | Exports the machine-readable `degeneracyBreaks` verdict that gates Phase 9 and orders Phase 6. Its degeneracy is NOT known to be the same phenomenon as Phase 8's M6a degeneracy — recorded as separate, relationship unknown |
+| SOLVE-04a | Phase 3 — The (Delta_i, eta) solve | Pending | THEOREM tier — value only, ≥1e-9 relative, after `objScale`. PROG-00(a) certificate: corner attainment at γ=0 |
+| SOLVE-04b | Phase 3 — The (Delta_i, eta) solve | Pending | INFERENCE tier — separate unit, `θ.b > 0` guard, tag lint + guard-removal mutant. Certificate explicitly ABSENT, which is why it is inference |
+| SOLVE-05 | Phase 3 — The (Delta_i, eta) solve | Pending | Scoping PROVISIONAL under the constant-`w` premise, enforced by `make check-wstate` |
+| SOLVE-06 | Phase 3 — The (Delta_i, eta) solve | Pending | Exports `degeneracyBreaks`, gating Phase 9 and ordering Phase 6. NOT known to be the same phenomenon as Phase 8's M6a degeneracy — separate, relationship unknown |
 | SOLVE-07 | Phase 3 — The (Delta_i, eta) solve | Pending |  |
-| DATA-01 | Phase 4 — Moments / ingestion | Pending | Three legs: `action=c` rc=0 is a NECESSARY CONDITION ONLY; `action=ce` absent must fail with a named diagnostic; `action=ce` on the fabricated fixture must pass with `card(tObs)>0` and non-degenerate `rv_bar` |
+| DATA-01 | Phase 4 — Moments / ingestion | Pending | Three legs; `action=c` rc=0 is a NECESSARY CONDITION ONLY (an empty file passes it) |
 | DATA-02 | Phase 4 — Moments / ingestion | Pending |  |
-| DATA-03 | Phase 4 — Moments / ingestion | Pending | `W` is per-market and time-varying, from E6 `WindowChanged`. Consumed by VOL-08 — one of the two Phase 4 -> Phase 6 edges |
+| DATA-03 | Phase 4 — Moments / ingestion | Pending | `W` per-market and time-varying from E6. Consumed by VOL-08 |
 | DATA-04 | Phase 4 — Moments / ingestion | Pending |  |
 | DATA-05 | Phase 4 — Moments / ingestion | Pending |  |
 | DATA-06 | Phase 4 — Moments / ingestion | Pending | Enforced by REPR-09 (Phase 1); listed under DATA to match producer contract numbering |
 | DATA-07 | Phase 4 — Moments / ingestion | Pending | Consumed by VOL-08 alongside DATA-03 |
 | DATA-08 | Phase 4 — Moments / ingestion | Pending | Pinned to `cfmm-replicationPlank@d34846c`, enforced by `make check-datapin` |
-| DATA-09 | Phase 4 — Moments / ingestion | Pending | Exercised against DATA-10's fabricated fixture; must NOT depend on E2/E5 data existing. Its σ²_K-unjoined rule also binds DATA-11 and VOL-09 |
+| DATA-09 | Phase 4 — Moments / ingestion | Pending | Exercised against DATA-10's fabricated fixture; must NOT depend on E2/E5 existing |
 | DATA-10 | Phase 4 — Moments / ingestion | Pending | The fixture that makes legs (2) and (3) of DATA-01 checkable |
-| DATA-11 | Phase 4 — Moments / ingestion | Pending | **Independent ingestion leg — own plan (04-05), NOT sequenced behind DATA-03/05/07.** Fabricated E4/E1 fixture; the indexer that would emit real rows is UNOWNED AND UNBUILT. Feeds VOL-07, and through it Phase 8's Θ_φ |
-| VOL-0A | Phase 5 — Port foundation | Pending | **Gates the port.** Seeded reproducible sample; ≥3/10 INFERENCE re-cuts the phase's scope. Its census form is re-applied to Phase 8's six cited theorems. Per-theorem verdict is a human reading — UNVERIFIABLE-LEG, declared |
-| VOL-01 | Phase 5 — Port foundation | Pending | Imports only Mathlib. Provenance TBD, resolved in-phase (expected `none (pure theorem)`) |
+| DATA-11 | Phase 4 — Moments / ingestion | Pending | Independent ingestion leg — own plan (04-05), NOT sequenced behind DATA-03/05/07. Feeds VOL-07 and through it Phase 8's Θ_φ |
+| VOL-0A | Phase 5 — Port foundation | Pending | **Gates the port.** Its census form is re-applied to Phase 8's 14 cited theorems. Per-theorem verdict is a human reading — UNVERIFIABLE-LEG, declared |
+| VOL-01 | Phase 5 — Port foundation | Pending | Imports only Mathlib. Provenance TBD, resolved in-phase |
 | VOL-02 | Phase 5 — Port foundation | Pending | Imports only Mathlib. Provenance TBD, resolved in-phase |
 | VOL-03 | Phase 5 — Port foundation | Pending | Graph articulation point (out-degree 4); imports only PosSpec. Bridge DESIGN precedes it in the same phase |
-| VOL-04 | Phase 6 — Instrument mechanics | Pending | Provenance TBD — must resolve before porting (VOL-0B lint) |
-| VOL-05 | Phase 6 — Instrument mechanics | Pending | Provenance TBD; if ξ⋆ is consumed it arrives via E2 `PortafolioMinted` (**SPEC-ONLY**) — declare it and run on a fabricated fixture, never live data |
-| VOL-06 | Phase 6 — Instrument mechanics | Pending | Provenance TBD; `tokenId` decoding is subgraph-side per contract §6, so GAMS-side provenance is `none` by construction |
-| VOL-07 | Phase 6 — Instrument mechanics | Pending | **Consumes DATA-11** — Θ_φ from E4 (LIVE) + σ²_K from E1.strike. Θ_φ is also the parameter set Phase 8's programs range over; a committed rename-mutant must redden its units |
-| VOL-08 | Phase 6 — Instrument mechanics | Pending | **Consumes DATA-03 and DATA-07** through `_MomentsContract.gms` (rename-mutant must redden); plan order routed by SOLVE-06's recorded verdict |
-| VOL-09 | Phase 7 — VolInstrument | Pending | In-degree-4 convergence node. **No longer the endpoint** — it is the gateway to Phase 8, which imports from it. Provenance inherited and re-declared, not assumed |
-| VOL-10 | Phase 8 — The convex programs | Pending | **Promoted from v2 (was FLAIR-01).** 15 theorems, 0 sorry. Downstream in imports but it is WHERE THE SOLVED PROGRAMS LIVE (cited at VOLATILITY_INSTRUMENTS.md:459). Collapsed into one phase with PROG-01..06 — see roadmap judgement call 8. Plan 08-01 gates the phase with a six-theorem certificate CENSUS |
-| PROG-01 | Phase 8 — The convex programs | Pending | **SOLVE** — M5 infimum on λ_ARB over a nonempty COMPACT box; extremum attained. Certificate `flairMulti_exists_max_compact`. Value asserted to STRICTLY exceed the displayed bound |
-| PROG-02 | Phase 8 — The convex programs | Pending | **SOLVE** — M6a level block `(φ̄, α, u)`, corner attained bang-bang. Certificate `flairMulti_corner_attained_levels` + `flairMulti_le_corner`. Reports WHICH corner; a bound perturbation must move it |
-| PROG-03 | Phase 8 — The convex programs | Pending | **ASSERT ONLY, NOT SOLVED** — M6a shape block `(β, γ)` is unbounded; saturation boundary as β → −∞, strict gap at every finite β. Limit assertion + a guard reddening any solver that returns a shape-block bound as a solution, and per TEST-08 the guard ships a committed unit that deliberately triggers it. Deferred until lean4-spec constrains the block |
-| PROG-04 | Phase 8 — The convex programs | Pending | **SOLVE** — M6b: the flat fee path minimizes λ_ARB among equal-FLAIR paths. Certificate: M1's STRICT convexity. The strict half is what is asserted — a `>=` assertion would pass on the flat path itself |
-| PROG-05 | Phase 8 — The convex programs | Pending | **The reframing made executable.** A solution outside the representation kernel's scales/bounds FAILS — never rounded into range. This is why Phases 0-2 are the substrate. The `assertEvmExpressible` macro ships in Phase 2 (consumer relation, same pattern as GATE-03's `assertModelOptimal`) |
-| PROG-06 | Phase 8 — The convex programs | Pending | Phase 8's **second plan** — placed ahead of the solves it gates. Two legs: finite differences with NO solver, and marginal (`.m`) sign assertions in every solving unit |
-| IDENT-01 | Phase 9 — Coordinate identification (CONDITIONAL) | Pending | Opens iff SOLVE-06 records `degeneracyBreaks = 1`; otherwise closed as INVALIDATED. INFERENCE tier if opened. **Deliberately NOT promoted by rev 4** — the reframing's instruction was non-degenerate first |
+| VOL-04 | Phase 6 — Instrument mechanics | Pending | Provenance TBD — must resolve before porting |
+| VOL-05 | Phase 6 — Instrument mechanics | Pending | Provenance TBD; ξ⋆ if consumed arrives via E2 (**SPEC-ONLY**) — fabricated fixture only, never live data |
+| VOL-06 | Phase 6 — Instrument mechanics | Pending | Provenance TBD; `tokenId` decoding is subgraph-side per §6, so GAMS-side provenance is `none` by construction |
+| VOL-07 | Phase 6 — Instrument mechanics | Pending | **Consumes DATA-11** — Θ_φ from E4 (LIVE) + σ²_K from E1.strike. Θ_φ is also what Phase 8's programs range over |
+| VOL-08 | Phase 6 — Instrument mechanics | Pending | **Consumes DATA-03 and DATA-07**; plan order routed by SOLVE-06's recorded verdict |
+| VOL-09 | Phase 7 — VolInstrument + EndogenousMaturity | Pending | In-degree-4 convergence node. The gateway to Phase 8, not the endpoint |
+| VOL-12 | Phase 7 — VolInstrument + EndogenousMaturity | Pending | **Placed in 7, not 8** (roadmap judgement call 12): depends on VolInstrument+Main+Flow+GeomProfile, all landed by Phase 7, and feeds NO PROG requirement. 34 theorems with no program consumer would dilute the deliverable phase. Provenance TBD |
+| VOL-10 | Phase 8 — The convex programs | Pending | Promoted from v2 (was FLAIR-01). 15 thm, 0 sorry. Supplies PROG-02/03's certificates |
+| VOL-11 | Phase 8 — The convex programs | Pending | **Phase 8's FIRST plan.** 22 thm, 0 sorry, landed 2026-07-30. Depends on VOL-10 so it cannot precede Phase 8; PROG-01/04/06 rest on it so it must precede the programs. This is the module that supplies λ_ARB, which had NO Lean counterpart at the old pin |
+| PROG-01 | Phase 8 — The convex programs | Pending | **SOLVE** — M5 infimum on λ_ARB over a nonempty compact box. Certificates RE-CITED in rev 5: `mevMulti_exists_min_compact` (existence) + `mevMulti_min_gt_corner` (strict excess). Tier THEOREM. *Rev 4 cited `flairMulti_exists_max_compact` — wrong objective (λ_FLAIR), wrong direction (max) — in the flagship program* |
+| PROG-02 | Phase 8 — The convex programs | Pending | **SOLVE** — M6a level block, corner attained bang-bang. `flairMulti_corner_attained_levels` + `flairMulti_le_corner`. Reports WHICH corner; a bound perturbation must MOVE it |
+| PROG-03 | Phase 8 — The convex programs | Pending | **ASSERT ONLY** — shape block unbounded, saturation boundary as β → −∞, strict gap at every finite β. Limit assertion + bound-as-optimum guard shipping a unit that deliberately triggers it |
+| PROG-04 | Phase 8 — The convex programs | Pending | **DEMOTED to ASSERT-ONLY in rev 5.** `ptrade_strictConvexOn` + `ptrade_strictAntiOn` are proven, but existence over the equal-income level set is NOT certified and PROG-00(a) requires existence, not convexity. Tier INFERENCE. Ships `abort$` guards on `a ≡ w` and `σ_t ≡ σ_0` (without `a ≡ w` the doc says the conclusion can REVERSE), and records the OPEN note that at constant σ the strict half may have no bite |
+| PROG-05 | Phase 8 — The convex programs | Pending | A solution outside the kernel's scales/bounds FAILS — never rounded into range. This is why Phases 0-2 are the substrate. `assertEvmExpressible` ships in Phase 2 |
+| PROG-06 | Phase 8 — The convex programs | Pending | Phase 8's **third plan**, ahead of the solves it gates. Certificates RE-CITED with exact sign match: `mevMulti_anti_phibar/anti_alpha/anti_u`, `mevMulti_mono_beta`, `ptrade_convexOn`. Tier THEOREM. Finite-difference leg runs with NO solver |
+| PROG-07 | Phase 8 — The convex programs | Pending | Lands with VOL-11 in plan 08-02 — MevOptimization's own three docstring limitations as guards: the ARB≈LVR·P_trade leading-order asymptotic, NO demand response to the fee (so a corner is a property of the objective, NOT a market-equilibrium claim), and P_trade steady-state ⇒ quasi-static path application. A lint reddens the phrase 'market equilibrium' on any output |
+| IDENT-01 | Phase 9 — Coordinate identification (CONDITIONAL) | Pending | Opens iff SOLVE-06 records `degeneracyBreaks = 1`; otherwise INVALIDATED. Deliberately NOT promoted — the reframing's instruction was non-degenerate first |
+| VPATH-06 | Phase 10 — Shock contract + path model | Pending | Selector `0xd3827b0b`, 5 args; `txlVolumeRate` IS `δ_trans`. Widths binding via REPR-03/09 |
+| VPATH-07 | Phase 10 — Shock contract + path model | Pending | **DECIDED: not considered.** Decoded only because its position fixes downstream calldata offsets. NOT exported as provenance — REPR-08's lesson applied verbatim; a lint reddens it in any `execute_unload` |
+| VPATH-10 | Phase 10 — Shock contract + path model | Pending | Reference constants pinned, not invented: `SQRT_PRICE_1_1 = 2^96` (from the exact table, never a GAMS float), range rounded to tickSpacing 60, `UNIT_LIQUIDITY = 2^64` |
+| VPATH-01 | Phase 10 — Shock contract + path model | Pending | **Reuses `priceImpactKernel_Add0`** — a lint reddens a second copy of the same algebra. The Q96 scale asymmetry there is load-bearing |
+| VPATH-02 | Phase 10 — Shock contract + path model | Pending | Swap sign condition `ΔQ_X·ΔQ_M < 0` enforced per step AS A CONSTRAINT, never assumed |
+| VPATH-12 | Phase 10 — Shock contract + path model | Pending | **Phase 10's articulation point.** Recursion is affine in reciprocal coordinates (measured deviation 0.000), so closure is ONE LINEAR equality `Σ ΔQ_X = 0` — no nonlinear terminal condition, no inverting the recursion. Both directions measured. The Theorem 29/30 monoid correspondence is CONFIRMED against the Lean/doc statements, not inferred from matching algebra |
+| VPATH-08 | Phase 10 — Shock contract + path model | Pending | **DECIDED: the loop closes, i(0) = i(N)**, so `p̄` is well defined at both ends and `ν_trans` measures genuine round-trip volume |
+| VPATH-03 | Phase 10 — Shock contract + path model | Pending | `ν_trans` uses the GEOMETRIC mean — a committed fixture where the arithmetic form differs must redden |
+| VPATH-04 | Phase 10 — Shock contract + path model | Pending | Both terminal targets at TEST-02 exponent-dependent tolerances, never a bare literal |
+| VPATH-05 | Phase 10 — Shock contract + path model | Pending | `N` is a FIXED INPUT — this is GENERATION, not solving. Residual freedom is EXPECTED, not a defect; a lint reddens any objective function in the path model. `N` must be a `Parameter`, never a `Variable` |
+| VPATH-13 | Phase 11 — EVM-unit emission and replay | Pending | **The representational cliff.** GAMS floats provably cannot carry Q96: 2^44 spacing, `2^96` emits as scientific notation, `12345678901234567` emits off by one. Exact tick-indexed table generated OUTSIDE GAMS. **Leg (a) — the table — is delivered in Phase 1 under REPR-10; one shared artifact, not two.** Legs (b)(c)(d) are emission-side here |
+| VPATH-14 | Phase 11 — EVM-unit emission and replay | Pending | Emitted quantities are EXACT INTEGERS, so inputs carry ZERO conversion error by construction; rounding happens BEFORE emission to a definite integer. Only predicted OUTPUTS carry float error — which is what VPATH-11's tolerance governs |
+| VPATH-09 | Phase 11 — EVM-unit emission and replay | Pending | forge cheatcode pattern already working for `pricing_kernel.json`; schema self-sufficient so the replay verifies without recomputation. Written last, so a failed run leaves no new JSON |
+| VPATH-11 | Phase 11 — EVM-unit emission and replay | Pending | **Split by ownership.** GAMS-side and checkable here: the TEST-02 tolerance contract + a self-replay from the EMITTED INTEGERS. The on-chain replay is owned by the GAMS↔Solidity differential-testing session per the repo ownership map — recorded as an external dependency and marked UNVERIFIABLE-LEG from this repo, not claimed |
 
 **Coverage:**
-- v1 requirements: **70 total** (48 → 57 review → 59 E4 → 67 programs → 70 after refreshing the Lean submodule)
-- Mapped to phases: **67 / 67 ✓**
+- v1 requirements: **84 total** (48 → 57 review → 59 E4 → 67 programs → 70 Lean refresh → 84 volume path)
+- Mapped to phases: **84 / 84 ✓**
 - Unmapped: **0**
 - Duplicates: **0** (each requirement appears in exactly one row)
-- Phases: **10** (0–9)
+- Phases: **12** (0–11)
 
 | Phase | Count |
 |-------|-------|
@@ -305,26 +322,37 @@ which are not second mappings.
 | Phase 4 — Moments / ingestion | 11 |
 | Phase 5 — Port foundation | 4 |
 | Phase 6 — Instrument mechanics | 5 |
-| Phase 7 — VolInstrument | 1 |
-| Phase 8 — The convex programs | 7 |
+| Phase 7 — VolInstrument + EndogenousMaturity | 2 |
+| Phase 8 — The convex programs | 9 |
 | Phase 9 — Coordinate identification (CONDITIONAL) | 1 |
-| **Total** | **67** |
+| Phase 10 — Shock contract + path model | 10 |
+| Phase 11 — EVM-unit emission and replay | 4 |
+| **Total** | **84** |
 
-**Placement of the eight requirements added by rev 4:**
+**Placement of the seventeen requirements mapped by rev 5:**
 
 | Requirement | Phase | Why there |
 |---|---|---|
-| **VOL-10** `FlairOptimization` | 8 | Promoted from v2 — downstream in imports, but it is where the solved programs live. Collapsed into one phase with PROG-01..06 rather than a port-only phase whose criterion would be "15 more theorems green" (judgement call 8) |
-| **PROG-00** certificate | **2**, not 8 | A third `registry.tsv` column beside `tier` and `provenance` — same mechanism, same file — with a pre-Phase-8 consumer in Phase 3's SOLVE-04a/04b (judgement call 9) |
-| **PROG-01 / 02 / 04** | 8 | The three programs whose extremum is *attained* — the ones GAMS solves |
-| **PROG-03** | 8 | The one whose extremum is *not* attained: asserted as a limit, with a bound-as-optimum guard carrying its own TEST-08 mutation proof |
-| **PROG-05** EVM-expressible | 8 | Its units (pips, Algebra vol) are the program's parameters; the `assertEvmExpressible` macro ships in Phase 2 as a consumer relation |
-| **PROG-06** monotonicity | 8, **second plan** | λ_ARB-specific so no earlier home exists, but placed *ahead of* the solves it gates and checkable by finite differences with no solver |
+| **VOL-11** `MevOptimization` | 8, first plan | Depends on VOL-10 so it cannot precede Phase 8; PROG-01/04/06 rest on it so it must precede the programs. Only topologically consistent slot |
+| **VOL-12** `EndogenousMaturity` | **7**, not 8 | A leaf with no PROG consumer. 34 theorems irrelevant to the deliverable would dilute the deliverable phase |
+| **PROG-07** limitations | 8, with VOL-11 | That module's own docstring; unlike PROG-00 it has no pre-Phase-8 consumer |
+| **VPATH-01/02/03/04/05/06/07/08/10/12** | **10** | Shock decode + path model — everything above the representational cliff, where GAMS doubles are adequate |
+| **VPATH-09/11/13/14** | **11** | Below the cliff: exact integers, the committed Q96 table, the JSON, the diff |
 
-**Renumbering:** IDENT-01 moves from Phase 8 to **Phase 9**. It stays conditional and stays
-last, deliberately — the instruction behind rev 4 was *non-degenerate first*, so promoting
-degeneracy work would invert the principle that produced the revision.
+**Why two VPATH phases and not one or four.** The cut between 10 and 11 is a *measured*
+representational cliff, not a stage boundary: above it everything lives in GAMS doubles and
+tick space, below it everything must be exact integers, because `2^96` emits as scientific
+notation and `12345678901234567` emits silently off by one. A single phase would state half its
+criteria in a number system the other half cannot represent. Splitting further — decode without
+a model, or emit without a replay — would produce phases whose success criterion is "a file
+exists", the horizontal-layer anti-pattern refused at every other cut in this roadmap.
+
+**Not a new milestone.** GSD `new-milestone` presumes a shipped predecessor; v1.0 has shipped
+nothing (0/54 plans, no `MILESTONES.md`). The two scopes are also coupled — VPATH-13 shares
+REPR-10's exact table, VPATH-01 reuses `priceImpactKernel_Add0`, VPATH-11 uses TEST-02's
+tolerance rule, VPATH-09/13 ride on GATE-05 — so they belong in one graph and one table.
+Phases 0–9 keep their numbering and content.
 
 ---
 *Requirements defined: 2026-07-28*
-*Traceability rebuilt: 2026-07-30 (rev 4)*
+*Traceability rebuilt: 2026-07-30 (rev 5)*
