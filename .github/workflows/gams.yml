@@ -9,6 +9,11 @@ concurrency:
   cancel-in-progress: true
 permissions:
   contents: read
+  # ci-selftest probes the gams-gate environment's protection-rule count and the
+  # registered-runner count. Two negative-control rows invoke it, so the job needs
+  # read access to those two surfaces — and nothing more. Still no write scope
+  # anywhere; this remains a read-only workflow.
+  administration: read
 
 jobs:
   # SECURITY GATE — do not remove.
@@ -44,3 +49,31 @@ jobs:
         run: make compile-gams
       - name: run assertion units (action=ce — needs CONOPT for the NLP solves)
         run: make test-gams
+
+      # ---- Phase 0's gates. Before this, CI verified only the two targets above,
+      # so the honest-gates work was invisible to CI: 50 committed mutants, two lint
+      # engines and the fixture-freshness check all ran on developer machines only.
+      # A gate nothing runs is the defect class Phase 0 exists to remove.
+
+      - name: bootstrap shellcheck (lint-make hard-fails without it, by design)
+        run: make tools-shellcheck
+
+      - name: lint-make — shellcheck every gating recipe (SC2181, SC2015, set -e)
+        run: make lint-make
+
+      - name: lint-gams — the data-file source lint
+        run: make lint-gams
+
+      - name: check-fixtures — committed GDX freshness (2-arg gdxdiff)
+        run: make check-fixtures
+
+      # negative-controls is the instrument that certifies every other gate: 50
+      # committed mutants, each asserted to produce its expected non-zero code.
+      # Two of its rows shell out to `ci-selftest`, which probes the environment's
+      # protection rules and the runner count — hence the elevated read scope below.
+      # If those two rows fail on token scope, the fix is a PAT secret; it is NOT
+      # to weaken or delete the rows.
+      - name: negative-controls — every gate proven able to fail
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: make negative-controls
