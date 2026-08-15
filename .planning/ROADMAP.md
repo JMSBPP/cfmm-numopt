@@ -1589,7 +1589,7 @@ Phase 0 and never again (`-include mk/*.mk`), and `model/lint/rules.tsv` and
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 0. Honest gates | 0/4 | Not started | - |
+| 0. Honest gates | 1/4 | In progress | - |
 | 1. Representation kernel + spine | 0/6 | Not started | - |
 | 2. Test architecture | 0/5 | Not started | - |
 | 3. The (Δᵢ, η) solve | 0/5 | Not started | - |
