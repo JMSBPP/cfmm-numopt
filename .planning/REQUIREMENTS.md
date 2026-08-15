@@ -152,7 +152,15 @@ decision — it exists for exactly the reason REPR-01 forbids `$eval` and REPR-0
 producer contract's numbering, but it is enforced by the Phase-1 representation kernel.
 
 
-## Milestone v1.1 — `Shocks → VolumePath[]`
+### Volume Path — `Shocks → VolumePath[]`  *(phases 10+)*
+
+> **Filed as continuing phases, not a separate milestone.** GSD's `new-milestone` presumes a
+> shipped predecessor; v1.0 has shipped nothing (0/42 plans) and no `MILESTONES.md` exists, so
+> starting a new milestone would orphan it rather than advance past it. More importantly the two
+> are not independent: **VPATH-13 shares REPR-10's exact tick→sqrtPriceX96 table**, VPATH-01
+> reuses `priceImpactKernel_Add0`, VPATH-11 uses TEST-02's tolerance rule, and VPATH-09/13 ride
+> on GATE-05's fixture-freshness machinery. Those edges belong inside one dependency graph and
+> one traceability table.
 
 **What it is.** Given a **volume shock** and a **fixed** iteration count `N`, GAMS generates a swap
 path of length `N` — an array of quantities that, entered as swap calls on the contract, realizes
