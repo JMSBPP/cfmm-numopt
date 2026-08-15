@@ -13,6 +13,17 @@ GAMS_BUILD := build
 # paths relative to $(GAMS_DIR) here if a file should be excluded.
 GAMS_SKIP  :=
 
+# ── M7 concurrency substrate ──────────────────────────────────────────────
+# The ONE permanent extension point. Every later plan and phase ships its own
+# mk/<name>.mk and NEVER edits this file again. `-include` is silent when the
+# directory is empty.
+-include mk/*.mk
+
+# The include above precedes every rule in this file, so without this pin the
+# first target of the first included mk/*.mk would silently become the default
+# goal of a bare `make`. Pin it to the historical default.
+.DEFAULT_GOAL := compile-gams
+
 .PHONY: compile-gams test-gams clean-gams payoff-fixtures spec-preflight spec-preflight-band
 
 # compile-gams: compile-check every .gms file under model/ with action=c.
@@ -44,10 +55,13 @@ compile-gams:
 # Each test/ driver is an INDEPENDENT execution unit including exactly one
 # payoff/ theorem file — see model/PayoffModule.gms for why theorem files are
 # never aggregated into one compilation unit.
+#
+# NOTE: test/_mutants/ holds deliberately-broken units (TEST-09). They are run only by
+# `make negative-controls`, never by test-gams — otherwise the suite would red by design.
 test-gams:
 	@mkdir -p $(GAMS_DIR)/$(GAMS_BUILD)
 	@cd $(GAMS_DIR) && rc=0; ok=0; fail=0; \
-	for f in $$(find test -name '*.gms' 2>/dev/null | sed 's|^\./||' | sort); do \
+	for f in $$(find test -name '*.gms' -not -path 'test/_mutants/*' 2>/dev/null | sed 's|^\./||' | sort); do \
 		out="$(GAMS_BUILD)/$$(echo "$$f" | tr / _ | sed 's/\.gms$$//').lst"; \
 		printf '>> testing %s\n' "$$f"; \
 		if $(GAMS) "$$f" action=ce o="$$out" scrdir="$(GAMS_BUILD)" lo=0 >/dev/null 2>&1; then \

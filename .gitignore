@@ -34,3 +34,6 @@ model/build/
 .env
 *.swp
 .DS_Store
+
+# make-level tooling bootstrap (shellcheck etc.)
+.tools/
