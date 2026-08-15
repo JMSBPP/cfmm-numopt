@@ -1,0 +1,7 @@
+# Committed GDX fixtures WITH a wired producer. APPEND-ONLY, one per line.
+# Anything tracked and not listed here must be declared in UNVERSIONED.md.
+# Read by BOTH `make check-fixtures` (mk/gates.mk) and LINT-08
+# (model/lint/rules.tsv, kind=gdx_producer), so the two can never disagree.
+# gdx_basename	producer_gms	make_target
+payoff_zero_slippage.gdx	payoff/eta_pi_trader_zero_slippage.gms	payoff-fixtures
+payoff_band_monotone_large.gdx	payoff/eta_pi_trader_band_monotone_large.gms	payoff-fixtures

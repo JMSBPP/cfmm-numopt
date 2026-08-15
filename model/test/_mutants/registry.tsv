@@ -58,3 +58,17 @@ nc-lintgams-mutants-present	positive	0	test "$(ls model/test/_mutants/gms/*.gms 
 # `nonzero` so that a mutant reddening for the WRONG reason (rc=2, a compile
 # error from a broken $include path) is caught instead of absorbed.
 nc-gate03-iterlim0-band	negative	3	mkdir -p model/build && cp model/payoff_band_monotone_large.gdx model/build/nc_band_backup.gdx && cd model && gams test/_mutants/gams/band_iterlim0.gms action=ce o=build/nc_iterlim0.lst scrdir=build lo=0 >/dev/null 2>&1; rc=$?; cp build/nc_band_backup.gdx payoff_band_monotone_large.gdx; exit $rc	option iterlim=0 makes the GATE-03 status assertions fire on the band unit
+# ── GATE-05 controls (plan 00-04) ─────────────────────────────────────────
+# `expect = nonzero` on every row whose command is `make …`: GNU make collapses
+# each recipe failure to its own exit status 2, so the plan's `1` is a code make
+# never returns. Measured for all three: recipe rc=1 ("Error 1"), make rc=2.
+nc-checkfixtures-positive	positive	0	make check-fixtures	the two committed payoff fixtures regenerate content-identically (gdxdiff rc=0) and the target leaves the working tree unchanged
+nc-checkfixtures-stale	negative	nonzero	make check-fixtures FIXTURE_DIR=model/test/_mutants/fixtures	a stale reference fixture reddens check-fixtures (two STALE lines, recipe rc=1 / make rc=2)
+nc-checkfixtures-missing	negative	nonzero	make check-fixtures FIXTURE_DIR=/nonexistent	a missing reference fixture fails loudly rather than being skipped
+nc-checkfixtures-empty-tsv	negative	nonzero	make check-fixtures CHECK_FIXTURES_TSV=/dev/null	an empty fixture declaration is a false pass and must be refused
+# D1's rule applied to nc-checkfixtures-stale: it accepts `nonzero`, and a
+# DELETED mutant directory also exits non-zero (cp: cannot stat), so the row
+# would keep passing with its own proof gone. This positive row pins presence AND
+# integrity -- the mutants must still be the two real fixtures SWAPPED.
+nc-checkfixtures-mutants-present	positive	0	cmp -s model/test/_mutants/fixtures/payoff_zero_slippage.gdx model/payoff_band_monotone_large.gdx && cmp -s model/test/_mutants/fixtures/payoff_band_monotone_large.gdx model/payoff_zero_slippage.gdx	both stale-fixture mutants EXIST and are still the SWAPPED pair; deleting or un-swapping one must not leave the suite green (D1 rule)
+nc-lintgams-gdx-undeclared	negative	1	python3 model/lint/lint_gams.py --rules model/lint/rules.tsv --fixtures /dev/null --unversioned /dev/null	LINT-08 reddens a committed .gdx that declares neither a wired producer nor knowingly-unversioned status

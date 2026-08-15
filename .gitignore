@@ -29,6 +29,12 @@ model/build/
 !model/price_impact_kernel.gdx
 !model/payoff_zero_slippage.gdx
 !model/payoff_band_monotone_large.gdx
+# TEST-09 stale-fixture mutants (GATE-05). Deliberately the two real fixtures
+# SWAPPED — see model/test/_mutants/fixtures/README.md. Without this negation the
+# *.gdx rule above makes them uncommittable, and the only control that proves
+# check-fixtures can go red would exist on one machine and nowhere else.
+!model/test/_mutants/fixtures/payoff_zero_slippage.gdx
+!model/test/_mutants/fixtures/payoff_band_monotone_large.gdx
 
 # Environment / editor / OS
 .env
