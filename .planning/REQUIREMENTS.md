@@ -151,6 +151,38 @@ decision — it exists for exactly the reason REPR-01 forbids `$eval` and REPR-0
 `= INF` guards: GAMS carries a 53-bit mantissa. It is listed under DATA to match the
 producer contract's numbering, but it is enforced by the Phase-1 representation kernel.
 
+
+## Milestone v1.1 — `Shocks → VolumePath[]`
+
+**What it is.** Given a **volume shock** and a **fixed** iteration count `N`, GAMS generates a swap
+path of length `N` — an array of quantities that, entered as swap calls on the contract, realizes
+the desired **fee revenue** under `δ_trans` and carries the tick from `i(t)` to `i(t+1)`. Output is
+a JSON file forge reads with its JSON utils, so the path can be replayed on-chain and diffed.
+
+`N` is **an input fixed during planning, never an unknown.** The program is therefore a
+*generation* problem — any feasible path of length `N` is an answer. Having more freedom than
+terminal conditions is expected and is not a defect to be designed away.
+
+**Spec:** `model/mev_tax_model_one/notes.md` (GAMS worktree).
+**Reference implementation:** `cfmm-wt/plank/src/models/mev_tax_model_one` — *not* the
+`evm-controller` `SwapAmtGen`/`BinomialProxy` files, which are unrelated to this milestone.
+**Contract, written by the plank side as the `SELECTOR_NEXT` todo:** (1) encode calldata on
+`Shocks {price, tick, volume, volumeDecay}`; (2) build **`Shocks → VolumePath[]`** ← *this is the
+GAMS deliverable*; (3) send `VolumePath` as a batch with `Shocks` as HookData; (4) verify they
+match `Shocks` — *this is the differential test*.
+
+- [ ] **VPATH-01**: the state recursion is implemented as specified — `p₍₁,Δᵢ₎(i(n+1)) = L̄·p₍₁,Δᵢ₎(i(n)) / (L̄ + p₍₁,Δᵢ₎(i(n))·ΔQ_X(n))` — by **reusing** `priceImpactKernel_Add0`, not by writing a second copy of the same algebra. It is the identical form already restored in `PricingKernel.gms`, and the Q96 scale asymmetry there is load-bearing.
+- [ ] **VPATH-02**: `ΔQ_M(n) = −L̄·p₍₂,Δᵢ₎(i(n))·ΔQ_X / (L̄ + p₍₁,Δᵢ₎(i(n))·ΔQ_X)`, with the swap sign condition `ΔQ_X(n)·ΔQ_M(n) < 0` **enforced per step as a constraint**, never assumed. It is the doc's "shock-induced flow is a swap".
+- [ ] **VPATH-03**: the three path functionals are computed exactly as specified — `π^φ(n)` (fee income), `ν_trans(n) = Σ√(p̄|ΔQ_X·ΔQ_M|)` (note the **geometric** mean, not arithmetic), and `π̄(n)` (total notional) — with `p̄ ≡ p₍₂,Δᵢ₎(i(0))` and `φ̄ = 1 − (1−φ̄_X)(1−φ̄_M)`.
+- [ ] **VPATH-04**: the generated path satisfies both terminal targets — `δ_trans(N) = δ*_trans` and `r_N^φ = φ̄·δ*_trans`, where `r_n^φ = π^φ(n)/π̄(n)` and `δ_trans(n) = ν_trans(n)/π̄(n)`.
+- [ ] **VPATH-05**: `N` is a **fixed input**. The model generates *a* feasible path, and the residual freedom (`N+1` quantities against two terminal conditions) is declared as expected rather than closed by an invented objective. If a selection rule among feasible paths is later wanted, it is added deliberately and named.
+- [ ] **VPATH-06**: the shock is decoded exactly as the reference declares it — `next(address pool, uint160 sqrtPrice, int24 tick, uint24 txlVolumeRate, uint24 txlDecayRate)`, selector `0xd3827b0b`. `txlVolumeRate` is `δ_trans`. Widths are binding: `uint24` rates, `int24` tick, `uint160` sqrtPrice — all subject to REPR-03/09.
+- [ ] **VPATH-07**: `txlDecayRate`'s role is **specified before it is used**. It appears in the reference selector and has **no counterpart in `notes.md`'s mathematics**. It is either given a definition in the spec or the model declares it unused — it is not silently ignored, and it is not guessed at.
+- [ ] **VPATH-08**: the terminal condition is stated unambiguously. `notes.md` imposes the closed loop `i(0) = i(N)`, while the shock semantics carry `i(t) → i(t+1)`. Whether the path closes on itself within an event or moves the tick between events changes the feasible set, so it is resolved in the spec rather than inferred by the implementer.
+- [ ] **VPATH-09**: the emitted JSON is readable by forge's JSON cheatcodes and follows the pattern already working for `pricing_kernel.json` (`vm.readFile` + `vm.parseJsonUintArray`/`parseJsonIntArray`). The schema carries the quantity array, the realized tick/sqrtPrice path, the input shock, and the realized `δ_trans`/`r^φ` — enough for step 4 to verify without recomputation.
+- [ ] **VPATH-10**: the fixture pins the reference's own setup constants, not invented ones — `SQRT_PRICE_1_1 = 2^96`, liquidity range `tick(SQRT_PRICE_1_4)…tick(SQRT_PRICE_4_1)` rounded to **tickSpacing 60**, `UNIT_LIQUIDITY = 2^64`. Divergence from these makes any differential result meaningless.
+- [ ] **VPATH-11**: the differential test realizes step 4 — replaying `VolumePath[]` through the pool actions reproduces GAMS's `δ_trans`, `r^φ` and tick path within the declared tolerances (TEST-02's exponent-dependent rule, not a flat `1e-12`), and **fails loudly** on divergence rather than reporting a rate the chain did not realize.
+
 ## v2 Requirements
 
 - ~~**FLAIR-01**~~ — **PROMOTED TO v1 as VOL-10.** The import-graph argument (it imports *from* `VolInstrument`, so it is downstream) was topologically right and functionally backwards: `FlairOptimization` is where the solved programs actually live. Downstream in imports does not mean lower priority when the deliverable is solving.
