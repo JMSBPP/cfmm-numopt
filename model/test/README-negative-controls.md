@@ -68,8 +68,11 @@ A row whose command times out (`NC_TIMEOUT`, default 900s) counts as a **failure
 
 ## Adding a row
 
-1. Commit the mutant, if the claim needs one, under `model/test/_mutants/`. GAMS units go in
-   `model/test/_mutants/gams/`. They are invisible to the build by construction:
+1. Commit the mutant, if the claim needs one, under `model/test/_mutants/`. GAMS units that are
+   **executed** by a row go in `model/test/_mutants/gams/`; units that are only **linted** and never
+   run go in `model/test/_mutants/gms/` (`make lint-gams` excludes the whole `_mutants/` tree from
+   its default file set, so they are driven explicitly through `LINT_PATHS`). They are invisible to
+   the build by construction:
    `compile-gams` excludes `./test/*` and `test-gams` excludes `test/_mutants/*`. Do not remove
    either exclusion — the units are broken **by design** and would red the suite.
 2. Append one line to `model/test/_mutants/registry.tsv`. Never edit or reorder an existing line;
