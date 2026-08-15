@@ -12,18 +12,18 @@ See: .planning/PROJECT.md (updated 2026-07-27)
 ## Current Position
 
 Phase: 0 of 11 (Honest gates)
-Plan: 2 of 4 in current phase (00-01, 00-02 complete)
-Status: In progress — GATE-01 met and TEST-09 substrate hardened; 00-03/00-04 pending
-Last activity: 2026-08-15 — 00-02 executed on `gsd/phase-0-honest-gates`: exit-code-only gating in `payoff-fixtures`/`spec-preflight`/`spec-preflight-band`, `make lint-make` (shellcheck 0.11.0), 5 committed mutants, 14 new registry rows (18 total), and deferred item **D1 closed**
+Plan: 3 of 4 in current phase (00-01, 00-02, 00-03 complete)
+Status: In progress — GATE-01/02/03/04 met and TEST-09 substrate hardened; 00-04 (GATE-05/06/07) pending
+Last activity: 2026-08-15 — 00-03 executed on `gsd/phase-0-honest-gates`: `make lint-gams` reading the data-file rule table `model/lint/rules.tsv` (LINT-01..07), `solveStat` assertions inserted at BOTH `Solve` sites, 8 new committed mutants, 11 new registry rows (29 total)
 
-Progress: [░░░░░░░░░░] 4% (2/54 plans; Phase 9 plan count TBD)
+Progress: [█░░░░░░░░░] 6% (3/54 plans; Phase 9 plan count TBD)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 2
-- Average duration: 8.5 min
-- Total execution time: 0.3 hours
+- Total plans completed: 3
+- Average duration: 9.7 min
+- Total execution time: 0.5 hours
 
 **By Phase:**
 
@@ -31,10 +31,11 @@ Progress: [░░░░░░░░░░] 4% (2/54 plans; Phase 9 plan count TB
 |-------|-------|-------|----------|
 | Phase 00 P01 | 1 | 6 min (3 tasks, 8 files) | 6 min |
 | Phase 00 P02 | 1 | 11 min (4 tasks, 12 files) | 11 min |
+| Phase 00 P03 | 1 | 12 min (3 tasks + 1 doc repair, 16 files) | 12 min |
 
 **Recent Trend:**
-- Last 5 plans: 00-01 (6 min), 00-02 (11 min)
-- Trend: — (00-02 carried a 4th unplanned task, the D1 closure)
+- Last 5 plans: 00-01 (6 min), 00-02 (11 min), 00-03 (12 min)
+- Trend: flat (~10 min/plan). Each wave carries one unplanned task: 00-02 the D1 closure, 00-03 the D1 *rule* applied to its own rows plus a `_mutants/gams` vs `_mutants/gms` doc repair.
 
 *Updated after each plan completion*
 
@@ -45,6 +46,31 @@ Progress: [░░░░░░░░░░] 4% (2/54 plans; Phase 9 plan count TB
 Full log in PROJECT.md Key Decisions. Decisions taken during roadmapping (later revs
 supersede earlier ones where they differ):
 
+- [Phase 0, plan 00-03]: **A rule keyed on a MISSING assertion must match inside the assertion's
+  CONDITION, not merely find the token nearby.** Measured on the pre-fix tree with the identical
+  trigger and 12-line window: partner `(?i)\.solveStat\b` (token anywhere) → **0 violations, rc=0**;
+  partner `(?i)abort\$\([^()]*\.solveStat\b` (inside the condition) → **2 violations**, at
+  `eta_pi_trader_band_monotone_large.gms:118` and `eta_pi_trader_zero_slippage.gms:89`. Both units
+  already *displayed* `.solveStat` in the failure argument list of an `abort$` that tested only
+  `modelStat`, so the obvious form of the rule reports a clean tree against two real gaps. **The
+  general rule: when linting for an absence, write the mutant so it contains the token in the wrong
+  place and confirm the rule still fires.** Phase 2's PROG-00 certificate lint and VOL-0B provenance
+  lint are the same shape and inherit this.
+- [Phase 0, plan 00-03]: **The GAMS lint is a DATA FILE.** `model/lint/rules.tsv` — seven TAB
+  columns (`id`, `severity`, `kind`, `pattern`, `partner`, `window`, `message`), append-only, one
+  rule per line (M7). Two kinds: `forbid` (a banned token) and `require_within` (a MISSING
+  construct). Later phases add coverage by appending a LINE; `model/lint/lint_gams.py` is not
+  edited. **Every new rule must ship a mutant in `_mutants/gms/` and a row in `registry.tsv`** —
+  stated in `model/lint/README-rules.md`.
+- [Phase 0, plan 00-03]: **`execute` and `$call` need SEPARATE lint rules.** `$onCheckErrorLevel`
+  governs `$call` **only** — measured: with it set, `execute 'false'` still returns rc=0 and
+  execution continues. LINT-02 and LINT-03 are therefore not substitutes; one rule would have left
+  half of GATE-04 uncovered while looking complete.
+- [Phase 0, plan 00-03]: **The lint's default file set is a filesystem walk, not `git ls-files`.**
+  The plan specified `git ls-files` but its own acceptance criterion bans `subprocess` from the
+  engine. The walk over `model/` (minus `build/` and `test/_mutants/`) is stricter — an uncommitted
+  source cannot escape the lint by being untracked — and was measured to yield the identical 16
+  files.
 - [Phase 0, plan 00-02]: **A `negative` row expecting `nonzero` accepts EVERY reason for failing —
   including "the artifact under test is gone".** This was the D1 false pass: deleting
   `registry.selftest.tsv` made the runner exit 2 ("does not exist"), which the row accepted, so
@@ -252,11 +278,31 @@ None yet. (`.planning/todos/pending/` not created)
   2026-07-27 by the first workflow run**, not deliberately, and has **0 protection rules**
   and **0 runners**. GATE-06's work is *configuring* an environment that is already there.
   Ordering is load-bearing — protection rules before runner registration.
-- **[Phase 0 — two admitted gaps]** (1) No committed input provably degrades `solveStat`
-  while leaving `modelStat` acceptable — the static `rules.tsv` rule is what guarantees
-  GATE-03 coverage, not the mutant. (2) `model/price_impact_kernel.gdx` has **no
-  regeneration path at all**; either a producer is funded in a plan or it is recorded in
-  `model/fixtures/UNVERSIONED.md` as knowingly unversioned.
+- **[Phase 0 — GATE-02/03/04 MET by 00-03]** `make lint-gams` reads `model/lint/rules.tsv` and
+  reports `16 files, 7 rules, 0 violations`, rc=0. Seven rules, each with a committed mutant proven
+  to redden it with its own rule id. The real GATE-03 gap was `solveStat`, not `modelStat`, exactly
+  as the roadmap's correction said: LINT-06 found **2** violations (band:118, zero-slip:89) and
+  LINT-07 found **0**, and both units now assert `solveStat` ahead of `modelStat`.
+- **[Phase 0 — two admitted gaps, one now bounded]** (1) **Still true and now measured.** No
+  committed input provably degrades `solveStat` while leaving `modelStat` acceptable — the static
+  LINT-06 rule is what guarantees GATE-03 coverage, not the mutant. The `option iterlim = 0` mutant
+  gives **solveStat 11 (Internal Solver Failure) / modelStat 5 (Locally Infeasible)** at rc=3: the
+  two codes degrade *together*, which is the direct evidence that the mutant proves the assertion
+  PAIR fires and cannot isolate `solveStat`. The UNVERIFIABLE-LEG text is reproduced verbatim in
+  `model/lint/rules.tsv` above LINT-06 and in `registry.tsv` above the mutant row. (2)
+  `model/price_impact_kernel.gdx` has **no regeneration path at all**; either a producer is funded
+  in a plan or it is recorded in `model/fixtures/UNVERSIONED.md` as knowingly unversioned.
+- **[Phase 0 — the D1 rule keeps finding new instances]** 00-03's eight `nonzero` negative rows read
+  committed mutants, and a **deleted** mutant also exits non-zero (rc=2, "does not exist"), so each
+  would have kept passing with its own proof gone. Reproduced with `gms/onmulti.gms` moved away.
+  Closed by `nc-lintgams-mutants-present` (presence: 7 files; integrity: all seven `LINT-0[1-7]` ids
+  still named), observed to FAIL when violated. **Expect this to recur in every plan that adds
+  negative rows** — it has now occurred in two consecutive waves.
+- **[Phase 0 — three plans, three factual errors in their own acceptance criteria]** 00-01 (rc=1 vs
+  make's 2), 00-02 (the same, three times, plus a mutant that could not fail), 00-03 (a `grep -c`
+  count of 1 against a comment the plan itself mandates, and `26 entries` where 18+10 = 28). None
+  were resolved by weakening the check; each was recorded with the measurement that contradicts it
+  and a stricter substitute. **Planners: derive counts from the tree, not from memory.**
 - **[Phase 1 — genuinely blocked]** REPR-07's `E2.liquidityBar` normalizer question is open
   on **cfmm-gams#1**. Corrected fact: `LbarQ128`/`DICfgQ128` are **not both `2^128`** — each
   unit sets one to `2^128` and the other to `2^128/10`, swapped. If they are genuine
@@ -345,12 +391,14 @@ None yet. (`.planning/todos/pending/` not created)
 ## Session Continuity
 
 Last session: 2026-08-15
-Stopped at: Completed 00-02-PLAN.md on branch `gsd/phase-0-honest-gates` (commits `514741f`, `88534fc`, `0ffe6b2`, `77e98f6`). GATE-01 met; D1 closed. Four gates re-verified at the end: `compile-gams: 12 ok, 0 failed, 0 skipped`; `test-gams: 4 passed, 0 failed`; `lint-make: 9 recipes, 0 findings`; `negative-controls: 18 entries, 0 failed`. `git status --short -- 'model/*.gdx'` empty — both fixtures regenerate byte-identical. Next: 00-03 (GATE-02/03/04).
-Resume file: .planning/phases/00-honest-gates/00-02-SUMMARY.md
+Stopped at: Completed 00-03-PLAN.md on branch `gsd/phase-0-honest-gates` (commits `ea93da7`, `11ccfe5`, `afa597c`, `d15fc48`). GATE-02/03/04 met. Five gates re-verified at the end: `compile-gams: 12 ok, 0 failed, 0 skipped`; `test-gams: 4 passed, 0 failed`; `lint-gams: 16 files, 7 rules, 0 violations`; `lint-make: 10 recipes, 0 findings` (was 9 — `lint-gams` is inside its enumeration); `negative-controls: 29 entries, 0 failed`. `git status --short -- 'model/*.gdx'` empty. Next: 00-04 (GATE-05/06/07; NOT autonomous — carries the runner checkpoint).
+Resume file: .planning/phases/00-honest-gates/00-03-SUMMARY.md
 
 **Uncommitted on purpose:** `.planning/ROADMAP.md` carries 3 unrelated pending GATE-07 wording
-edits from a prior session (plus 00-02's Phase-0 plan checkmarks), and `.planning/config.json` is
-modified. 00-02 deliberately did not commit either file so those edits are not swept into its
-history. Whoever owns the GATE-07 wording should commit them.
+edits from a prior session, plus 00-02's and 00-03's Phase-0 plan checkmarks and the `3/4` progress
+row. 00-02 and 00-03 both deliberately left the file uncommitted so those unrelated edits are not
+swept into their history — `git commit -- <path>` commits the whole file, not a hunk. The ROADMAP
+updates for both plans are on disk and were diffed; whoever owns the GATE-07 wording should commit
+the file as a whole. `.planning/config.json` is likewise modified and untouched.
 
 Prior session (2026-07-30): ROADMAP.md rev 5 and STATE.md written; REQUIREMENTS.md traceability rebuilt (84/84 across 12 phases). **The two-step review gate has still never passed on that artifact** — rev 5 fixes two defects (N3, the PROG-01 mis-citation) that only a review found, in a document revised five times without one.
