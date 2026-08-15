@@ -56,10 +56,11 @@ SEVERITIES = ("error", "warn")
 NFIELDS = 7
 
 # GATE-05. The .gdx scan is a filesystem walk of the repository, for the same
-# reason default_files() is: `git ls-files` would need `subprocess`, which this
-# engine does not import (a lint must not depend on a second process to decide
-# what to look at), and a walk is STRICTER -- an uncommitted .gdx dropped into
-# the tree cannot escape the declaration requirement by being untracked.
+# reason default_files() is: this engine spawns no second process to decide what
+# to look at (an index query would need one, and 00-03's acceptance criterion
+# bans that module from this file by name), and a walk is STRICTER -- an
+# uncommitted .gdx dropped into the tree cannot escape the declaration
+# requirement by being untracked. See model/lint/README-rules.md.
 GDX_EXCLUDED_DIRS = (".git", ".tools", "lean4-spec", "node_modules")
 GDX_EXCLUDED_PREFIXES = (
     os.path.join("model", "build") + os.sep,

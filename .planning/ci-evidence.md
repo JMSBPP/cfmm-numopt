@@ -16,7 +16,7 @@ $ gh run list --limit 5
 completed  cancelled  chore: restructure split-out GAMS tree into a standalone repository  gams  main  push  30314047591  24h0m12s  2026-07-27T23:24:41Z
 ```
 
-**The `gams-gate` environment already existed, and it was AUTO-CREATED.** Its
+**The `gams-gate` environment already existed, and it was auto-created.** Its
 `created_at` is identical to the timestamp of the only workflow run this repository has
 ever had (`30314047591`, 2026-07-27T23:24:41Z) — GitHub materialises an environment the
 first time a job references it. Nobody configured it. It had **zero** protection rules,
