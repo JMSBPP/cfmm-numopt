@@ -1,0 +1,14 @@
+# GAMS source lint rules. APPEND-ONLY, one rule per line (M7).
+# id	severity	kind	pattern	partner	window	message
+# kind=forbid: any line matching `pattern` is a violation (partner/window empty).
+# kind=require_within: a line matching `pattern` must be followed within `window`
+#   lines by a line matching `partner`.
+#
+# ── GATE-02 ───────────────────────────────────────────────────────────────
+LINT-01	error	forbid	(?i)\babort\.noError\b			abort.noError halts execution silently at rc=0 with no status line (GATE-02)
+# ── GATE-04 — execute and $call need SEPARATE rules: $onCheckErrorLevel
+#    governs $call ONLY, measured (it does not make `execute 'false'` fail).
+LINT-02	error	forbid	^[^*#]*\bexecute[ \t]+\S			a failing `execute` returns rc=0; set execute.checkErrorLevel before it (GATE-04)
+LINT-03	error	forbid	^\$call(Async)?\b(?!\.checkErrorLevel)			a failing $call returns rc=0; use $call.checkErrorLevel or $onCheckErrorLevel (GATE-04)
+LINT-04	error	forbid	(?i)^\$onMulti			$onMulti* silently REPLACES a symbol at rc=0 (GATE-04, REPR-04)
+LINT-05	error	forbid	^[^*#]*\bexecError[ \t]*=			assigning execError forges the error state (GATE-04)
