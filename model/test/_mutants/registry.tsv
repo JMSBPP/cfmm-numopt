@@ -21,3 +21,10 @@ nc-lintmake-missing-shellcheck	negative	nonzero	make lint-make SHELLCHECK=/nonex
 nc-lintmake-grep-predicate	negative	1	python3 model/lint/lint_make.py --file model/test/_mutants/make/grep_predicate.mk	lint-make reddens on a grep-derived predicate in a gating position
 nc-lintmake-no-set-e	negative	1	python3 model/lint/lint_make.py --file model/test/_mutants/make/no_set_e.mk	lint-make reddens on a compound recipe line that does not declare set -e
 nc-lintmake-positive	positive	0	make lint-make	lint-make is green over every recipe in Makefile and mk/*.mk
+#
+# ── D1 closure (plan 00-02): the falsifiability proof must EXIST and be INTACT.
+# `nc-runner-selftest-registry` expects `nonzero`, and a MISSING registry also
+# exits non-zero (rc=2, "does not exist") -- so it passed for the wrong reason.
+# These two rows make the deletion and the gutting observable.
+nc-selftest-file-present	positive	0	test -f model/test/_mutants/registry.selftest.tsv	the runner's mutation proof EXISTS; deleting it must not leave the suite green (D1)
+nc-selftest-entry-count	positive	0	test "$(awk -F'\t' '!/^#/ && NF' model/test/_mutants/registry.selftest.tsv | wc -l)" -eq 3	the mutation proof still carries all THREE kinds of wrongness (nonzero-on-true, positive-on-false, wrong-exact-rc); gutting it to one always-failing row must not leave the suite green (D1)

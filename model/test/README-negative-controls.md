@@ -94,3 +94,26 @@ able to fail and nothing else in this directory means anything.
 
 The companion row `nc-runner-empty-registry` covers the other direction — the runner must refuse
 an emptied registry rather than report a vacuous green.
+
+### …and why one row was not enough (D1, closed by plan 00-02)
+
+`nc-runner-selftest-registry` expects `nonzero`. A **missing** registry also exits non-zero —
+`rc=2`, "registry … does not exist" — so the row passed for the wrong reason. Measured before the
+fix: `mv model/test/_mutants/registry.selftest.tsv` away, then `make negative-controls` →
+**`16 entries, 0 failed`, rc=0**. Deleting the proof that the runner can fail left the whole suite
+green. That is the same shape of defect as the listing scrape GATE-01 removed: a check whose
+success is indistinguishable from its own absence.
+
+Two `positive` rows close it, and each was observed to fail:
+
+| row | what it pins | observed when violated |
+|-----|--------------|------------------------|
+| `nc-selftest-file-present` | the proof **exists** | file moved away → `18 entries, 2 failed`, make rc=2 |
+| `nc-selftest-entry-count`  | the proof is **intact** — all 3 kinds of wrongness | gutted to 1 row → `nc-selftest-entry-count` FAIL, make rc=2 |
+
+The existing `nc-runner-selftest-registry` row keeps `expect = nonzero` and must not be changed to
+an exact code — `make` never returns the runner's `1`.
+
+**The general rule this establishes:** a `negative` row that accepts `nonzero` accepts *every*
+reason for failing, including "the artifact under test is gone". Whenever a negative row's command
+reads a committed file, pair it with a `positive` row asserting that file is present and intact.

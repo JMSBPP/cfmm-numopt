@@ -4,7 +4,20 @@ Out-of-scope discoveries logged rather than fixed, per the execution scope bound
 
 ## From plan 00-01
 
-### D1. `nc-runner-selftest-registry` passes if the selftest file is DELETED
+### D1. `nc-runner-selftest-registry` passes if the selftest file is DELETED — **CLOSED by plan 00-02**
+
+- **Status:** CLOSED 2026-08-15 by plan 00-02 (commit adding `nc-selftest-file-present` and
+  `nc-selftest-entry-count`). Reproduced first, then closed, then re-verified:
+
+  | step | command | measured |
+  |------|---------|----------|
+  | reproduce | `mv …/registry.selftest.tsv /tmp/x && make negative-controls` | `16 entries, 0 failed`, **rc=0** — the false pass |
+  | after fix, file absent | same | `18 entries, 2 failed`, **rc=2** |
+  | after fix, file restored | `mv /tmp/x …/registry.selftest.tsv && make negative-controls` | `18 entries, 0 failed`, **rc=0** |
+  | after fix, file gutted to 1 row | `make negative-controls` | `nc-selftest-entry-count` FAIL, **rc=2** |
+
+  The `expect = nonzero` on the original row was left untouched, per the note below.
+  The general rule is written into `model/test/README-negative-controls.md`.
 
 - **Found:** plan 00-01, task 3.
 - **What:** the row's command is
