@@ -12,3 +12,16 @@ LINT-02	error	forbid	^[^*#]*\bexecute[ \t]+\S			a failing `execute` returns rc=0
 LINT-03	error	forbid	^\$call(Async)?\b(?!\.checkErrorLevel)			a failing $call returns rc=0; use $call.checkErrorLevel or $onCheckErrorLevel (GATE-04)
 LINT-04	error	forbid	(?i)^\$onMulti			$onMulti* silently REPLACES a symbol at rc=0 (GATE-04, REPR-04)
 LINT-05	error	forbid	^[^*#]*\bexecError[ \t]*=			assigning execError forges the error state (GATE-04)
+# ── GATE-03 ───────────────────────────────────────────────────────────────
+# The partner requires the status symbol INSIDE the abort$() condition. A
+# partner that merely finds the token `.solveStat` in the window is satisfied by
+# the DISPLAY ARGUMENT both units already carry, and would report 0 violations
+# against 2 real ones. Measured.
+#
+# UNVERIFIABLE-LEG: no committed input is known that provably degrades solveStat
+# while leaving modelStat acceptable -- that combination is the hypothesis, not
+# something measured. The `option iterlim = 0` mutant proves the assertion PAIR
+# fires; it does not isolate solveStat. Coverage is guaranteed by LINT-06, not by
+# the mutant.
+LINT-06	error	require_within	(?i)^[ \t]*Solve[ \t]+	(?i)abort\$\([^()]*\.solveStat\b	12	every Solve must assert solveStat inside an abort$() condition (GATE-03)
+LINT-07	error	require_within	(?i)^[ \t]*Solve[ \t]+	(?i)abort\$\([^()]*\.modelStat\b	12	every Solve must assert modelStat inside an abort$() condition (GATE-03)

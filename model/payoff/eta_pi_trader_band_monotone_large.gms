@@ -116,6 +116,12 @@ payoffEq.. piVal =e= piTrader_Half_Plank(sqrtPX96_at(lambdaWad, iCfg, di), LbarQ
 Model BandMin / payoffEq /;
 option nlp = conopt;
 Solve BandMin using nlp minimizing piVal;
+# GATE-03: solveStat FIRST. modelStat can report an acceptable value while the
+# solver terminated abnormally; that combination passes today. Measured:
+# %solveStat.normalCompletion% = 1 on GAMS 54.1.
+abort$(BandMin.solveStat <> %solveStat.normalCompletion%)
+    "FAIL C_min: CONOPT did not terminate normally (solveStat)",
+    BandMin.solveStat, BandMin.modelStat;
 abort$(BandMin.modelStat <> %modelStat.locallyOptimal% and BandMin.modelStat <> %modelStat.optimal%)
     "FAIL C_min: CONOPT NLP did not reach optimum", BandMin.modelStat, BandMin.solveStat;
 Scalar diSolverRound ;  diSolverRound = round(di.l);

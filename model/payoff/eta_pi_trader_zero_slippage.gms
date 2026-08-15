@@ -87,6 +87,10 @@ payoffEq.. piVal =e= piTrader_Half_Plank(sqrtPX96_at(lambdaWad, iCfg, di), LbarQ
 Model ZeroSlip / payoffEq /;
 option nlp = conopt;
 Solve ZeroSlip using nlp minimizing piVal;
+# GATE-03: solveStat FIRST -- see the band unit for the rationale.
+abort$(ZeroSlip.solveStat <> %solveStat.normalCompletion%)
+    "FAIL: ZeroSlip solver did not terminate normally (solveStat)",
+    ZeroSlip.solveStat, ZeroSlip.modelStat;
 abort$(ZeroSlip.modelStat <> %modelStat.locallyOptimal% and ZeroSlip.modelStat <> %modelStat.optimal%)
     "FAIL: ZeroSlip NLP did not reach optimum", ZeroSlip.modelStat, ZeroSlip.solveStat;
 Scalar diSolverRound ; diSolverRound = round(di.l);
