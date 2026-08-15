@@ -25,13 +25,13 @@ id <TAB> severity <TAB> kind <TAB> pattern <TAB> partner <TAB> window <TAB> mess
 |------------|---------|
 | `id`       | unique rule id, e.g. `LINT-06`. Duplicates are a hard error. |
 | `severity` | `error` (the run exits 1) or `warn` (printed, does not fail). |
-| `kind`     | `forbid` or `require_within` (below). |
+| `kind`     | `forbid`, `require_within` or `gdx_producer` (below). |
 | `pattern`  | Python `re` syntax, matched against each source line with `search`. Use an inline `(?i)` where case folding is wanted — GAMS keywords are case-insensitive. |
 | `partner`  | `require_within` only; empty for `forbid`. |
 | `window`   | `require_within` only; a positive integer count of FOLLOWING lines. Empty for `forbid`. |
 | `message`  | what the violation means and why it matters. |
 
-## The two kinds
+## The three kinds
 
 **`forbid`** — every line matching `pattern` is a violation. This covers the
 silent-failure *tokens*: `abort.noError`, a bare `execute`, an unchecked
@@ -41,6 +41,29 @@ silent-failure *tokens*: `abort.noError`, a bare `execute`, an unchecked
 `window` following lines, by a line matching `partner`. This covers a *missing*
 construct, which is what GATE-03 actually is: a `Solve` whose status codes are
 never tested.
+
+**`gdx_producer`** (added by plan 00-04, GATE-05) — the only kind that does not
+scan source lines at all. Every `.gdx` in the tree must be **declared**: either in
+column 1 of `model/fixtures/FIXTURES.tsv`, which means it has a **wired**
+producer (a `.gms` some make target actually executes), or inside backticks in
+`model/fixtures/UNVERSIONED.md`, which means it is knowingly unchecked. Anything
+in neither place is a violation, reported at that path, line 0.
+
+`pattern`, `partner` and `window` must all be **empty** for this kind — a
+non-empty one is a hard error, because it would mean the rule's author expected
+line matching that never happens.
+
+The `.gdx` scan is a **filesystem walk** of the repository (minus `.git`,
+`.tools`, `lean4-spec`, `model/build/` and `model/test/_mutants/`), for the same
+reason `default_files()` is: `git ls-files` would require `subprocess`, which this
+engine deliberately does not import, and a walk is **stricter** — an uncommitted
+`.gdx` dropped into the tree cannot escape the declaration requirement by being
+untracked. Measured: the walk finds the same three files as
+`git ls-files '*.gdx'`.
+
+Both declaration files must exist; a missing one is refused (exit 2) rather than
+read as "nothing is declared", which would redden every fixture for the wrong
+reason.
 
 ### The partner must look inside the condition
 

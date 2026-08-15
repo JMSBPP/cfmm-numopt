@@ -68,13 +68,22 @@ A row whose command times out (`NC_TIMEOUT`, default 900s) counts as a **failure
 
 ## Adding a row
 
-1. Commit the mutant, if the claim needs one, under `model/test/_mutants/`. GAMS units that are
-   **executed** by a row go in `model/test/_mutants/gams/`; units that are only **linted** and never
-   run go in `model/test/_mutants/gms/` (`make lint-gams` excludes the whole `_mutants/` tree from
-   its default file set, so they are driven explicitly through `LINT_PATHS`). They are invisible to
-   the build by construction:
-   `compile-gams` excludes `./test/*` and `test-gams` excludes `test/_mutants/*`. Do not remove
-   either exclusion — the units are broken **by design** and would red the suite.
+1. Commit the mutant, if the claim needs one, under `model/test/_mutants/`. Which subdirectory
+   depends on how the row drives it:
+
+   | directory | contents | driven by |
+   |-----------|----------|-----------|
+   | `gams/` | GAMS units that are **executed** | `gams … action=ce` directly |
+   | `gms/` | GAMS units that are only **linted**, never run | `make lint-gams LINT_PATHS=…` |
+   | `fixtures/` | the two real payoff `.gdx` **swapped**, so each reference disagrees with its regeneration | `make check-fixtures FIXTURE_DIR=…` |
+   | `lean/` | `SorryFixture.lean`, plus `exp/eta.lean` laid out as a drop-in `LEAN4_SPEC_DIR` | `make lean-sorry-check MODULE=…`, `make spec-preflight[-band] LEAN4_SPEC_DIR=…` |
+
+   They are invisible to the build by construction: `compile-gams` excludes `./test/*`,
+   `test-gams` excludes `test/_mutants/*`, `lint-gams` excludes the whole `_mutants/` tree from
+   both its default `.gms` file set and its `gdx_producer` scan. Do not remove any of those
+   exclusions — the units are broken **by design** and would red the suite. `.gitignore` ignores
+   `*.gdx`, so the two fixture mutants are allowlisted by an explicit negation; without it the only
+   control proving `check-fixtures` can go red would exist on one machine and nowhere else.
 2. Append one line to `model/test/_mutants/registry.tsv`. Never edit or reorder an existing line;
    one entry per line keeps concurrent plans from colliding (M7).
 3. Run `make negative-controls` and confirm the entry count grew and `0 failed`.
@@ -120,3 +129,15 @@ an exact code — `make` never returns the runner's `1`.
 **The general rule this establishes:** a `negative` row that accepts `nonzero` accepts *every*
 reason for failing, including "the artifact under test is gone". Whenever a negative row's command
 reads a committed file, pair it with a `positive` row asserting that file is present and intact.
+
+## A row may be RED on purpose — do not make it green
+
+`nc-ci-selftest-positive` (`make ci-selftest`, GATE-06) **fails until a self-hosted runner is
+registered on the GAMS build machine**, and `make negative-controls` therefore exits non-zero on
+that one row. That is the correct report, not a defect: the `gams` job cannot start without a
+runner, so GATE-06 is not met, and the suite says so every time it runs.
+
+Deleting the row, changing its `expect`, or commenting it out would make the suite green by
+weakening the check — the one outcome this entire phase exists to prevent. The state is recorded in
+`.planning/ci-evidence.md`; when a runner is registered, the row goes green by itself and nothing
+here needs editing.
