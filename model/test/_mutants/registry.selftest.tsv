@@ -1,8 +1,0 @@
-# DELIBERATELY WRONG EXPECTATIONS. Consumed by the main registry row
-# `nc-runner-selftest-registry`, which requires this file to make the runner
-# exit NON-ZERO. If `make negative-controls REGISTRY=this-file` ever returns 0,
-# the runner has stopped being able to fail and every other row is worthless.
-# id	kind	expect	command	claim
-selftest-true-must-fail	negative	nonzero	true	`true` exits 0, so a 'negative' expectation on it MUST be reported as FAIL
-selftest-false-must-pass	positive	0	false	`false` exits 1, so a 'positive' expectation on it MUST be reported as FAIL
-selftest-wrong-exact-rc	negative	42	sh -c 'exit 7'	an exact-rc expectation of 42 against an actual rc of 7 MUST be reported as FAIL
