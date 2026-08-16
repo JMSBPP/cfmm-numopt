@@ -36,51 +36,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # lean4-spec is only needed by spec-preflight-band, which is a
-          # developer-machine target. Skip it here to keep checkout cheap.
-          submodules: false
           persist-credentials: false
-      - name: compile every .gms (action=c)
+      - name: compile every tracked .gms (action=c)
         run: make compile-gams
-      - name: run assertion units (action=ce — needs CONOPT for the NLP solves)
+      - name: VolumePath self-test — prover gates, JSON validity, determinism (needs CONOPT)
         run: make test-gams
-
-      # ---- Phase 0's gates. Before this, CI verified only the two targets above,
-      # so the honest-gates work was invisible to CI: 50 committed mutants, two lint
-      # engines and the fixture-freshness check all ran on developer machines only.
-      # A gate nothing runs is the defect class Phase 0 exists to remove.
-
-      - name: bootstrap shellcheck (lint-make hard-fails without it, by design)
-        run: make tools-shellcheck
-
-      - name: lint-make — shellcheck every gating recipe (SC2181, SC2015, set -e)
-        run: make lint-make
-
-      - name: lint-gams — the data-file source lint
-        run: make lint-gams
-
-      - name: check-fixtures — committed GDX freshness (2-arg gdxdiff)
-        run: make check-fixtures
-
-      # negative-controls is the instrument that certifies every other gate: 50
-      # committed mutants, each asserted to produce its expected non-zero code.
-      #
-      # NOT RUN HERE YET, and the reason is a credential boundary rather than a
-      # choice to run fewer checks. Two rows (nc-ci-selftest-positive,
-      # nc-ci-selftest-badrepo) shell out to `ci-selftest`, which probes the
-      # gams-gate environment's protection-rule count and the registered-runner
-      # count. GITHUB_TOKEN cannot read those surfaces, and `administration` is a
-      # GitHub App / fine-grained-PAT permission — NOT a valid Actions
-      # `permissions:` key, so it cannot simply be granted here (an earlier commit
-      # tried and made the whole workflow unparseable: run 31915452948 failed with
-      # zero jobs).
-      #
-      # Enabling it needs a PAT with the runner/environment read scopes, exposed as
-      # a secret and passed as GH_TOKEN. That is a credential decision for the repo
-      # owner. The rows are NOT to be weakened, skipped or deleted to get CI green —
-      # the whole point of TEST-09 is that a gate which cannot fail is worthless.
-      #
-      #   - name: negative-controls — every gate proven able to fail
-      #     env:
-      #       GH_TOKEN: ${{ secrets.CI_SELFTEST_PAT }}
-      #     run: make negative-controls

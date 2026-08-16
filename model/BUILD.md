@@ -1,40 +1,16 @@
-# GAMS Model — Build Manifest
+# Build Manifest
 
-Vendored from `../experiments/gams/` on 2026-06-27 (GAMS-01). This file is the
-authoritative build reference; the future GAMS CI workflow reads it.
+One model: `model/mev_tax_model_one/volume_path.gms` (the VolumePath prover).
+Spec: `model/mev_tax_model_one/notes.md`. Usage contract: `docs/volume-path.md`.
 
-## Pinned toolchain
-- GAMS **54.1.0**, platform **linux x86_64**.
-  (Local install: `/usr/gams/gams54.1_linux_x64_64_sfx/gams`.)
+Toolchain pin: **GAMS 54.1 + CONOPT 4.39** (determinism guarantee is per-toolchain;
+see docs/volume-path.md §3).
 
-## Working directory (required)
-GAMS resolves relative `$include` against the **working directory** of the `gams`
-invocation, not the file's neighbors. All invocations MUST run from `model/`:
+- `make compile-gams` — `action=c` syntax check of every tracked `.gms`
+- `make test-gams`    — `action=ce` prover self-test: in-model gates + JSON
+  validity + byte-identical double run
+- `make clean-gams`
 
-    cd model && gams <file>.gms action=c
-
-## Compile entrypoints (syntax-checkable today, `action=c`)
-- `PricingKernel.gms`   — `$include primitives.gms`; self-contained.
-- `LiquidityKernel.gms` — `$include primitives.gms`, `$include PricingKernel.gms`; self-contained.
-
-## Fragments / stubs — DO NOT compile standalone
-- `primitives.gms`        — include-only (shared scalars; include-guarded).
-- `dynamic/InitState.gms` — orphan; references the `inventory` symbol it never
-  includes, so it is not independently compilable.
-- `PayoffModule.gms`      — empty stub (`$include primitives.gms` only); no payoff logic yet.
-
-## Known caveats
-- `TradingRegion.gms` and `PricingKernel.gms` define the `inventory` set
-  differently (`/ assetX cashY /` vs `/ X, Y /`); not co-compilable without a
-  later kernel-unification task.
-- **No `Model`/`Solve` statement exists yet** — vendored content is
-  **syntax-checkable only**. The forward decision ("full GAMS install + license
-  via GitHub secret") is provisioned for a future solve target; gate any
-  licensed-solve CI job behind the existence of a real model.
-- `PriceKernel.gms` from the source dir is intentionally **not** vendored: it is a
-  GAMS compilation listing (`.lst` content) saved with a `.gms` extension.
-
-## Generated scratch
-GAMS scratch/listing output under `model/` is git-ignored (`model/**/*.lst`,
-`model/**/*.g00`, `model/**/*.lxi`, `model/**/*.gdx`, `model/225*/`). The CI job
-should additionally pin scratch to a controlled dir via `scrdir`/`curDir`.
+GAMS writes listings/scratch to the *invocation* working directory; both targets
+run from the model's own directory with `scrdir=build`, so all artifacts land in
+`model/mev_tax_model_one/build/` (gitignored).
