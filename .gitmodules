@@ -1,3 +1,0 @@
-[submodule "lean4-spec"]
-	path = lean4-spec
-	url = https://github.com/JMSBPP/cfmm-lean4-spec.git
