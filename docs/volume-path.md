@@ -153,7 +153,7 @@ Exit code is non-zero on every abort — gate on it, never on log text.
 ```sh
 make compile-gams   # action=c syntax check of every tracked .gms
 make test-gams      # units + prover (= test-units test-volumepath)
-make test-volumepath # prover only: in-model gates + jq parse (if present) + determinism double-run
+make test-volumepath # prover only: in-model gates + determinism double-run
 make clean-gams
 ```
 

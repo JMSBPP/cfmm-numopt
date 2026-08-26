@@ -12,9 +12,9 @@ formerly `cfmm-lean4-spec`), which is mounted here as the `lean4-spec/` submodul
 with the `model/` commits preserved. (Formerly `cfmm-gams`; the old URL redirects.)
 
 **GAMS-only policy.** Tracked source is `.gms`, `.gdx`, Markdown, the Makefile and
-the CI workflow — nothing else. Dev-machine Make helpers may shell out to `jq`
-or `python3` (`test-volumepath`, `spec-preflight*`); no Python/Solidity/TypeScript
-source is ever tracked here. Those live in the monorepo.
+the CI workflow — nothing else, and the Makefile invokes only `gams` plus POSIX
+shell. No Python/Solidity/TypeScript source or tooling lives here; that stays in
+the monorepo.
 
 ## What is here
 
@@ -57,7 +57,8 @@ demo size limits. See `model/BUILD.md`.
 make compile-gams      # action=c syntax check over every .gms
 make test-gams         # test-units + test-volumepath
 make test-units        # action=ce — runs the abort$() assertion drivers under model/test/
-make test-volumepath   # prover self-test: in-model gates + JSON parse + determinism double run
+make test-volumepath   # prover self-test: in-model gates + determinism double run
+make payoff-fixtures   # regenerate the committed payoff GDX fixtures
 make clean-gams
 ```
 
@@ -83,15 +84,12 @@ shock parameters overridable on the command line — see `docs/volume-path.md`.
 
 ## Relationship to the Lean formalization
 
-The `lean4-spec` submodule holds the Lean 4 proofs this model implements. The
-`spec-preflight-band` target re-greps the cited theorems for `sorry`/`admit`
-before extracting any GAMS code from a spec document, so a GAMS unit can never
-claim to implement an unproven theorem.
-
-```sh
-git submodule update --init lean4-spec
-make spec-preflight-band
-```
+The `lean4-spec` submodule pins the Lean 4 proofs this model implements
+(`git submodule update --init lean4-spec`). Each payoff unit's header cites the
+theorem it realizes; checking those theorems are `sorry`/`admit`-free is the
+formalization repo's CI job, not this Makefile's — the former `spec-preflight*`
+targets (Python-based spec extraction) were removed to keep this package
+GAMS-only.
 
 ## CI
 
