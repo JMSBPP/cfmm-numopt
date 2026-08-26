@@ -135,19 +135,20 @@ spec-preflight:
 # on the 3 cited theorems in eta.lean BEFORE extracting GAMS code, then mirrors
 # the spec MD into the production layout and drives the band unit.
 #
-# LEAN4_SPEC_DIR defaults to the lean4-spec submodule at the repo root. Note the
-# path has no `lean/` segment: JMSBPP/cfmm-lean4-spec stores exp/ at ITS root
-# (it is itself a subtree split of the monorepo's lean/ directory).
+# LEAN4_SPEC_DIR defaults to the lean4-spec submodule at the repo root, which
+# points at JMSBPP/cfmm-vol-markets-spec — the formalization layer (formerly
+# cfmm-lean4-spec, imported there via git-filter-repo, so old SHAs do not
+# resolve). Lean sources live under its lean/ directory.
 LEAN4_SPEC_DIR ?= lean4-spec
 spec-preflight-band:
 	@rm -rf $(GAMS_DIR)/$(GAMS_BUILD)/spec-band
 	@mkdir -p $(GAMS_DIR)/$(GAMS_BUILD)/spec-band/payoff $(GAMS_DIR)/$(GAMS_BUILD)/spec-band/test
-	@LEAN=$(LEAN4_SPEC_DIR)/exp/eta.lean; \
+	@LEAN=$(LEAN4_SPEC_DIR)/lean/exp/eta.lean; \
 	if [ ! -f "$$LEAN" ]; then \
 		printf 'spec-preflight-band FAIL: %s not found.\n' "$$LEAN"; \
 		printf '  The lean4-spec submodule is not initialized. Run:\n'; \
 		printf '    git submodule update --init lean4-spec\n'; \
-		printf '  or point LEAN4_SPEC_DIR at a checkout of JMSBPP/cfmm-lean4-spec.\n'; \
+		printf '  or point LEAN4_SPEC_DIR at a checkout of JMSBPP/cfmm-vol-markets-spec.\n'; \
 		exit 1; \
 	fi; \
 	for ID in pi_trader_half_strictly_increasing_in_ pi_trader_half_band_min_at_left pi_trader_half_band_max_large_trade; do \
