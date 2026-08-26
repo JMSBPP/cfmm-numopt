@@ -1,43 +1,71 @@
-# cfmm-gams
+# cfmm-numopt
 
-The off-chain **GAMS algebraic model** for CFMM payoff replication — split out of
+The **numerical-optimization layer** of the CFMM replication work: a GAMS-only
+package that runs CFMM programs — pricing/liquidity kernels, per-theorem payoff
+units, and the VolumePath prover — and emits machine-readable outputs (GDX
+fixtures, EVM-scaled JSON) for fuzzers and differential tests downstream.
+
+It pairs with the **formalization layer**,
+[`JMSBPP/cfmm-lean4-spec`](https://github.com/JMSBPP/cfmm-lean4-spec) (Lean 4),
+which is mounted here as the `lean4-spec/` submodule. History was split out of
 [`JMSBPP/cfmm-replicationPlank`](https://github.com/JMSBPP/cfmm-replicationPlank)
-with its `model/` history preserved.
+with the `model/` commits preserved. (Formerly `cfmm-gams`; the old URL redirects.)
 
-This repository is the source of truth for the GAMS track. The monorepo consumes
-it as a submodule mounted at `gams/`.
+**GAMS-only policy.** Tracked source is `.gms`, `.gdx`, Markdown, the Makefile and
+the CI workflow — nothing else. Dev-machine Make helpers may shell out to `jq`
+or `python3` (`test-volumepath`, `spec-preflight*`); no Python/Solidity/TypeScript
+source is ever tracked here. Those live in the monorepo.
 
 ## What is here
 
 | Path | Contents |
 |------|----------|
-| `model/` | GAMS sources — pricing kernel, liquidity kernel, trading region, payoff units |
+| `model/` | GAMS sources — pricing kernel, liquidity kernel, trading region, price-impact fixture |
 | `model/payoff/` | One file per formalized theorem, each an independent execution unit |
 | `model/test/` | One assertion driver per theorem unit, plus kernel tests |
-| `model/spec/` | Mathematical spec notes (mirrored reference — canonical copy lives in `cfmm-lean4-spec`) |
-| `model/BUILD.md` | Toolchain pin and build manifest |
-| `docs/specs/`, `docs/plans/` | Design specs and implementation plans |
-| `lean4-spec/` | Submodule → `JMSBPP/cfmm-lean4-spec` (the Lean formalization this model implements) |
+| `model/mev_tax_model_one/` | The **VolumePath prover** (`volume_path.gms`) and its spec (`notes.md`) |
+| `model/spec/` | Mathematical spec notes (mirror — canonical copy lives in `cfmm-lean4-spec`) |
+| `model/BUILD.md` | Toolchain pin, licence note, and build manifest |
+| `docs/volume-path.md` | Usage contract of the prover for its downstream consumers |
+| `docs/specs/`, `docs/plans/`, `docs/superpowers/` | Design specs and implementation plans |
+| `.agents/gams/research/` | GAMS tooling research notes |
+| `lean4-spec/` | Submodule → `JMSBPP/cfmm-lean4-spec` |
+
+## Outputs for fuzzers
+
+| Output | How | Status |
+|--------|-----|--------|
+| `model/price_impact_kernel.gdx` | `make payoff-fixtures` / kernel fixture driver | committed reference fixture |
+| `model/payoff_zero_slippage.gdx` | `make payoff-fixtures` | committed reference fixture |
+| `model/payoff_band_monotone_large.gdx` | `make payoff-fixtures` | committed reference fixture |
+| `model/mev_tax_model_one/volume_path.json` | `make test-volumepath` (or `gams volume_path.gms --sqrtPriceX96=… --volTgtWad=…`) | generated, git-ignored, byte-deterministic |
+
+The VolumePath JSON carries swap quantities at EVM scale (wei magnitudes);
+values above 2^53 pass through GAMS doubles, so treat them as **EVM-scaled**,
+not bit-exact, unless a consumer proves otherwise.
 
 ## Toolchain
 
-GAMS **54.1.0**, linux x86_64. The payoff units carry real NLP `Model`/`Solve`
-statements and therefore need the **CONOPT** solver; the kernel files are
-compile-checkable without a solver.
+GAMS **54.1.0**, linux x86_64, with the **CONOPT** solver (the payoff units and the
+prover carry real NLP `Model`/`Solve` statements; kernel files compile without a
+solver). The install in use is a **GAMS Demo licence** — models must stay within
+demo size limits. See `model/BUILD.md`.
 
 ## Build
 
 ```sh
-make compile-gams   # action=c syntax check over every .gms
-make test-gams      # action=ce — runs abort$() assertions and the NLP solves
-make clean-gams     # remove listings, scratch, and build output
+make compile-gams      # action=c syntax check over every .gms
+make test-gams         # test-units + test-volumepath
+make test-units        # action=ce — runs the abort$() assertion drivers under model/test/
+make test-volumepath   # prover self-test: in-model gates + JSON parse + determinism double run
+make clean-gams
 ```
 
 GAMS resolves relative `$include` against the **working directory of the
-invocation**, not the including file's directory. Every target therefore `cd`s
-into `model/` first. Running `gams` from the repo root will not resolve includes
-and will scatter `.lst` files — the `.gitignore` patterns are deliberately
-unanchored to catch that.
+invocation** and writes listings there, so every target `cd`s into the model's
+own directory and pins `scrdir=build`. Running `gams` from the repo root will
+scatter `.lst` files — the `.gitignore` patterns are deliberately unanchored to
+catch that.
 
 ## Architecture: one execution unit per theorem
 
@@ -45,13 +73,13 @@ GAMS has a single global symbol namespace. Each file under `model/payoff/`
 declares its own fixture (`iCfg`, `LbarQ128`, `DICfgQ128`, probes, provenance
 sets) plus its own `Model`, `Equation`, and `Variable`s — and those names are
 deliberately reused across theorems, because each theorem is a *different*
-numerical fixture.
+numerical fixture. The per-theorem files are therefore **never** `$include`d
+into one compilation unit: each gets its own driver under `model/test/`, and
+`make test-units` executes them separately. `model/PayoffModule.gms` is a
+registry documenting the pairs, not an aggregator.
 
-Consequently the per-theorem files are **never** `$include`d into one
-compilation unit. Each gets its own driver under `model/test/`, and
-`make test-gams` executes them separately. `model/PayoffModule.gms` is a
-registry documenting the pairs, not an aggregator. See its header for the full
-rationale.
+The VolumePath prover is standalone by design (no `$include`); its inputs are
+shock parameters overridable on the command line — see `docs/volume-path.md`.
 
 ## Relationship to the Lean formalization
 
@@ -64,6 +92,12 @@ claim to implement an unproven theorem.
 git submodule update --init lean4-spec
 make spec-preflight-band
 ```
+
+## CI
+
+`.github/workflows/gams.yml` runs `make compile-gams` and `make test-gams` on a
+self-hosted runner behind the `gams-gate` environment (required-reviewer
+approval before any untrusted code reaches the runner — do not remove it).
 
 ## License
 
