@@ -6,8 +6,8 @@ units, and the VolumePath prover — and emits machine-readable outputs (GDX
 fixtures, EVM-scaled JSON) for fuzzers and differential tests downstream.
 
 It pairs with the **formalization layer**,
-[`JMSBPP/cfmm-lean4-spec`](https://github.com/JMSBPP/cfmm-lean4-spec) (Lean 4),
-which is mounted here as the `lean4-spec/` submodule. History was split out of
+[`JMSBPP/cfmm-vol-markets-spec`](https://github.com/JMSBPP/cfmm-vol-markets-spec) (Lean 4;
+formerly `cfmm-lean4-spec`), which is mounted here as the `lean4-spec/` submodule. History was split out of
 [`JMSBPP/cfmm-replicationPlank`](https://github.com/JMSBPP/cfmm-replicationPlank)
 with the `model/` commits preserved. (Formerly `cfmm-gams`; the old URL redirects.)
 
@@ -24,12 +24,12 @@ source is ever tracked here. Those live in the monorepo.
 | `model/payoff/` | One file per formalized theorem, each an independent execution unit |
 | `model/test/` | One assertion driver per theorem unit, plus kernel tests |
 | `model/mev_tax_model_one/` | The **VolumePath prover** (`volume_path.gms`) and its spec (`notes.md`) |
-| `model/spec/` | Mathematical spec notes (mirror — canonical copy lives in `cfmm-lean4-spec`) |
+| `model/spec/` | Mathematical spec notes (mirror — canonical copy lives in `cfmm-vol-markets-spec`) |
 | `model/BUILD.md` | Toolchain pin, licence note, and build manifest |
 | `docs/volume-path.md` | Usage contract of the prover for its downstream consumers |
 | `docs/specs/`, `docs/plans/`, `docs/superpowers/` | Design specs and implementation plans |
 | `.agents/gams/research/` | GAMS tooling research notes |
-| `lean4-spec/` | Submodule → `JMSBPP/cfmm-lean4-spec` |
+| `lean4-spec/` | Submodule → `JMSBPP/cfmm-vol-markets-spec` (Lean sources under `lean/`) |
 
 ## Outputs for fuzzers
 
