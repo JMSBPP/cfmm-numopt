@@ -1,40 +1,57 @@
 # GAMS Model — Build Manifest
 
-Vendored from `../experiments/gams/` on 2026-06-27 (GAMS-01). This file is the
-authoritative build reference; the future GAMS CI workflow reads it.
+Authoritative build reference for `cfmm-numopt`; the CI workflow
+(`.github/workflows/gams.yml`) runs exactly the targets listed here.
 
 ## Pinned toolchain
-- GAMS **54.1.0**, platform **linux x86_64**.
-  (Local install: `/usr/gams/gams54.1_linux_x64_64_sfx/gams`.)
+- GAMS **54.1.0**, linux x86_64 (`/usr/gams/gams54.1_linux_x64_64_sfx/gams`).
+- Solver **CONOPT** (payoff units and the VolumePath prover carry real NLP
+  `Model`/`Solve` statements; kernel files are compile-checkable without it).
+- Licence: **GAMS Demo** (`gamslice.txt`: `G260530`, dev machine = CI runner).
+  Every model MUST stay within demo size limits; a solve that exceeds them
+  fails with a licence error, not a modelling error — check this first.
+- The VolumePath determinism guarantee (byte-identical JSON) is per-toolchain:
+  GAMS 54.1 + CONOPT 4.39.
 
 ## Working directory (required)
-GAMS resolves relative `$include` against the **working directory** of the `gams`
-invocation, not the file's neighbors. All invocations MUST run from `model/`:
+GAMS resolves relative `$include` against the **working directory** of the
+invocation and writes listings/scratch there. Every Make target therefore
+`cd`s into the model's own directory and pins `scrdir=build`:
 
-    cd model && gams <file>.gms action=c
+- kernel / payoff / test units run from `model/` → `model/build/`
+- the VolumePath prover runs from `model/mev_tax_model_one/` → `model/mev_tax_model_one/build/`
 
-## Compile entrypoints (syntax-checkable today, `action=c`)
-- `PricingKernel.gms`   — `$include primitives.gms`; self-contained.
-- `LiquidityKernel.gms` — `$include primitives.gms`, `$include PricingKernel.gms`; self-contained.
+Both `build/` trees are git-ignored.
 
-## Fragments / stubs — DO NOT compile standalone
-- `primitives.gms`        — include-only (shared scalars; include-guarded).
-- `dynamic/InitState.gms` — orphan; references the `inventory` symbol it never
-  includes, so it is not independently compilable.
-- `PayoffModule.gms`      — empty stub (`$include primitives.gms` only); no payoff logic yet.
+## Tracks
 
-## Known caveats
-- `TradingRegion.gms` and `PricingKernel.gms` define the `inventory` set
-  differently (`/ assetX cashY /` vs `/ X, Y /`); not co-compilable without a
-  later kernel-unification task.
-- **No `Model`/`Solve` statement exists yet** — vendored content is
-  **syntax-checkable only**. The forward decision ("full GAMS install + license
-  via GitHub secret") is provisioned for a future solve target; gate any
-  licensed-solve CI job behind the existence of a real model.
-- `PriceKernel.gms` from the source dir is intentionally **not** vendored: it is a
-  GAMS compilation listing (`.lst` content) saved with a `.gms` extension.
+### Kernels (compile-checked, `action=c`)
+- `primitives.gms` — include-only shared scalars (include-guarded).
+- `PricingKernel.gms`, `PricingKernelMoments.gms`, `LiquidityKernel.gms`,
+  `TradingRegion.gms`, `_PriceImpactKernelInputs.gms`, `PriceImpactKernelFixture.gms`.
+- `dynamic/InitState.gms` — references `inventory` without including it; compiles
+  in isolation only because nothing dereferences it.
+- `PayoffModule.gms` — registry of (theorem unit, test driver) pairs, not an aggregator.
 
-## Generated scratch
-GAMS scratch/listing output under `model/` is git-ignored (`model/**/*.lst`,
-`model/**/*.g00`, `model/**/*.lxi`, `model/**/*.gdx`, `model/225*/`). The CI job
-should additionally pin scratch to a controlled dir via `scrdir`/`curDir`.
+### Payoff theorem units (executed, `action=ce`, need CONOPT)
+One file per formalized theorem under `payoff/`, one driver per unit under
+`test/`; units are never `$include`d together (shared symbol names by design).
+Committed reference fixtures: `price_impact_kernel.gdx`, `payoff_zero_slippage.gdx`,
+`payoff_band_monotone_large.gdx` (regenerate with `make payoff-fixtures`).
+
+### VolumePath prover (executed, needs CONOPT)
+`mev_tax_model_one/volume_path.gms` — standalone, no `$include`. Spec:
+`mev_tax_model_one/notes.md`. Usage contract: `docs/volume-path.md`. Emits
+`volume_path.json` (git-ignored, byte-deterministic).
+
+## Targets
+- `make compile-gams`     — `action=c` over every `.gms` under `model/` except `test/` and `build/`
+- `make test-gams`        — `test-units` + `test-volumepath`
+- `make test-units`       — every `model/test/*.gms` with `action=ce`, exit-code gated
+- `make test-volumepath`  — prover self-test: in-model gates + `jq` parse (if present) + double-run `cmp`
+- `make payoff-fixtures`  — regenerate the committed payoff GDX fixtures
+- `make spec-preflight*`  — dev-machine spec-as-truth gates (use `python3`; see README policy)
+- `make clean-gams`
+
+Exit codes on GAMS 54.1: `2` compile error, `3` execution abort. Targets gate on
+the exit code; never scrape listings (`lo=0` removes the status line).
