@@ -8,7 +8,7 @@ fixtures, EVM-scaled JSON) for fuzzers and differential tests downstream.
 It pairs with the **formalization layer**,
 [`JMSBPP/cfmm-vol-markets-spec`](https://github.com/JMSBPP/cfmm-vol-markets-spec) (Lean 4;
 formerly `cfmm-lean4-spec`), which is mounted here as the `lean4-spec/` submodule. History was split out of
-[`JMSBPP/cfmm-replicationPlank`](https://github.com/JMSBPP/cfmm-replicationPlank)
+[`cfmm-vol-markets`](https://github.com/d2p-finance/cfmm-vol-markets) (formerly `cfmm-replicationPlank`)
 with the `model/` commits preserved. (Formerly `cfmm-gams`; the old URL redirects.)
 
 **GAMS-only policy.** Tracked source is `.gms`, `.gdx`, Markdown, the Makefile and
@@ -96,6 +96,22 @@ GAMS-only.
 `.github/workflows/gams.yml` runs `make compile-gams` and `make test-gams` on a
 self-hosted runner behind the `gams-gate` environment (required-reviewer
 approval before any untrusted code reaches the runner — do not remove it).
+
+## Contributing / Workflow
+
+**Fork → PR workflow (d2p-finance canonical).** The `d2p-finance` GitHub org owns
+the CANONICAL/upstream repos; the `JMSBPP/*` repos are the develop FORKS. ALL
+changes are made on the `JMSBPP/*` forks and reach the `d2p-finance/*` canonical
+repos ONLY through pull requests (fork → upstream). Never commit or push directly
+to a `d2p-finance` canonical repo — open a PR from the JMSBPP fork.
+
+For this repo: canonical is `d2p-finance/cfmm-numopt`, the develop fork is
+`JMSBPP/cfmm-numopt`. Work on a branch of the fork, open a PR against
+`d2p-finance/cfmm-numopt:main`; CI runs there behind the `gams-gate` approval.
+
+```sh
+git remote add upstream https://github.com/d2p-finance/cfmm-numopt.git
+```
 
 ## License
 
