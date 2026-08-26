@@ -199,6 +199,9 @@ abort$(abs(volReal/volTgtWad - 1) > tol)  "volume missed",        volReal;
 abort$(signWorst >= 0)                    "a step is not a swap", signWorst;
 
 * ---- emission: JSON for the Foundry bridge (stdJson-readable) -------------
+* Each array is emitted on ONE put line; a wrapped line is broken JSON that
+* still passes every gate above. 25 chars/entry (uint128 + ", ") is the bound.
+abort$(nEv*25 > 4000) "JSON line would exceed fj.pw — raise fj.pw or lower nEvents";
 file fj /volume_path.json/;  fj.pw = 4000;  put fj;
 put '{' /;
 * uint160/uint128 exceed the 53-bit double-exact ceiling: putting the Scalar
