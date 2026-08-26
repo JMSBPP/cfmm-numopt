@@ -48,9 +48,8 @@ Committed reference fixtures: `price_impact_kernel.gdx`, `payoff_zero_slippage.g
 - `make compile-gams`     — `action=c` over every `.gms` under `model/` except `test/` and `build/`
 - `make test-gams`        — `test-units` + `test-volumepath`
 - `make test-units`       — every `model/test/*.gms` with `action=ce`, exit-code gated
-- `make test-volumepath`  — prover self-test: in-model gates + `jq` parse (if present) + double-run `cmp`
+- `make test-volumepath`  — prover self-test: in-model gates + double-run `cmp`
 - `make payoff-fixtures`  — regenerate the committed payoff GDX fixtures
-- `make spec-preflight*`  — dev-machine spec-as-truth gates (use `python3`; see README policy)
 - `make clean-gams`
 
 Exit codes on GAMS 54.1: `2` compile error, `3` execution abort. Targets gate on
