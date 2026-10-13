@@ -1,3 +1,6 @@
 [submodule "lean4-spec"]
 	path = lean4-spec
 	url = https://github.com/JMSBPP/cfmm-vol-markets-spec.git
+[submodule "cfmm-vol-markets-spec"]
+	path = cfmm-vol-markets-spec
+	url = https://github.com/JMSBPP/cfmm-vol-markets-spec.git
