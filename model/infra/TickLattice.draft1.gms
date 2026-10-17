@@ -1,6 +1,6 @@
 $onText
 ===============================================================
-----------------------> SCALARS <-----------------------------
+----------------------> INPUTS <-----------------------------
 ==============================================================
 $offText
 
@@ -14,24 +14,7 @@ LN_GRID_RESOLUTION = log(GRID_RESOLUTION);
 Scalar PRICING_RESOLUTION;
 PRICING_RESOLUTION = power(2, 96);
 
-$onText
-	NOTE: From now we fix a tick spacing, although is aimed as a tunable design parameter and needs
-	to be modeled as such
-$offText
-
 Scalar TickSpacing /10/;
-
-$onText
-NOTE: This is a placeholder
-$offText
-
-$onText
-==================================================================
------------------------> SETS < ------------------------------
-==================================================================
-$offText
-
-*Set Ticks;
 
 $onText
 ==================================================================
