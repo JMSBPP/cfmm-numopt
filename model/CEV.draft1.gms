@@ -90,24 +90,24 @@ $offText
 
 * -------------- \(\Big\{ (i_K, \sigma (i_K), \mu (i_K))\Big\}_{j=1}^{N}\) ------------------------------------
 Set strikeIdx /1*5000/;
-Set Ticks(strikeIdx);
+Set TickStrikes(strikeIdx);
 
-Ticks(strikeIdx) = no;
-Ticks(strikeIdx)$(ord(strikeIdx) <= nStrikes) = yes;
+TickStrikes(strikeIdx) = no;
+TickStrikes(strikeIdx)$(ord(strikeIdx) <= nStrikes) = yes;
 
 Parameter tickVal(strikeIdx);
-* ord must stay on the static universe strikeIdx (not dynamic Ticks).
+* ord must stay on the static universe strikeIdx (not dynamic TickStrikes).
 tickVal(strikeIdx) = iLo + (ord(strikeIdx) - 1)*TickSpacing;
-tickVal(strikeIdx)$(not Ticks(strikeIdx)) = 0;
+tickVal(strikeIdx)$(not TickStrikes(strikeIdx)) = 0;
 
 Parameter localTickVol(strikeIdx);
 localTickVol(strikeIdx) =
     cevLocalVol(flowDiffusionVol, VegaNotional, tickVal(strikeIdx));
-localTickVol(strikeIdx)$(not Ticks(strikeIdx)) = 0;
+localTickVol(strikeIdx)$(not TickStrikes(strikeIdx)) = 0;
 
 Parameter localTickDrift(strikeIdx);
 localTickDrift(strikeIdx) =
     cevLocalDrift(flowDiffusionVol, flowDiffusionDrift, VegaNotional, tickVal(strikeIdx));
-localTickDrift(strikeIdx)$(not Ticks(strikeIdx)) = 0;
+localTickDrift(strikeIdx)$(not TickStrikes(strikeIdx)) = 0;
 
 display nStrikes, iLo, iHi, tickVal, localTickVol, localTickDrift;
