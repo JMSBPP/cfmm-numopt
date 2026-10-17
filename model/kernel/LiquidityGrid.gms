@@ -36,6 +36,11 @@ $macro ExposureGlobalGamma(tickSpacing, vegaNotional, ladderResolution) (((vegaN
 * \(\ell \, (\xi, \iota; i_K) \, = \, \frac{\xi^{i_K}}{\Big ( \frac{1 - \xi^{\iota}}{1 - \xi}\Big)} \); cfmm-vol-markets-spec/spec/MAIN_SPEC.md:L147
 $macro liquidityMassAt(tickSpacing, tickVal, ladderResolution) (power(LiqBase(tickSpacing), (tickVal))/(1-power(LiqBase(tickSpacing),(ladderResolution))/(1-LiqBase(tickSpacing))))
 
+
+*\(L \, (i_K) \, = \, \bar L_{(1/2,\,0)} \, \cdot \, \ell \, (\xi, \iota; i_K)\); cfmm-vol-markets-spec/spec/MAIN_SPEC.md:L147
+
+$macro liquidityOnStrikeAt(tickSpacing ,tickVal, ladderResolution,vegaNotional) vegaNotional*liquidityMassAt(tickSpacing, tickVal,ladderResolution)
+
 * \(\sum_{i_K} \, \ell \, (\xi, \iota; i_K)\) ; cfmm-vol-markets-spec/spec/MAIN_SPEC.md:L155
 * tickStrikes = support set; tickLevel = tick level on that set (draft1: TickStrikes, tickStrikeVal).
 $macro GlobalLiquidityMass(tickStrikes, tickSpacing, tickLevel, ladderResolution) (sum(tickStrikes, liquidityMassAt(tickSpacing, tickLevel(tickStrikes), ladderResolution)))
@@ -83,8 +88,17 @@ liquidityDensity(strikeIdx) = liquidityMassAt(TickSpacing, tickStrikeVal(strikeI
 Equation liquidityDensityDomain;
 	liquidityDensityDomain.. GlobalLiquidityMass(TickStrikes, TickSpacing, tickStrikeVal, LadderResolution) =e= 1;
 
-* Theorem 51: floor \(G(\iota)\ge g\) (gamma budget / resolution gate).
+* \(G(\iota) \, \ge \, g\) ; cfmm-vol-markets-spec/spec/MAIN_SPEC.md:L416
 Equation gammaBudget;
 	 gammaBudget.. GlobalGammaTarget =l= ExposureGlobalGamma(TickSpacing, VegaNotional, LadderResolution);
+
+
+*\(L \, (i_K) \, = \, \bar L_{(1/2,\,0)} \, \cdot \, \ell \, (\xi, \iota; i_K)\); cfmm-vol-markets-spec/spec/MAIN_SPEC.md:L147
+Set LiquidityOnStrike(strikeIdx);
+* fill the set
+
+
+
+
 
 display nStrikes, mGamma, gamma;
