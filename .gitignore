@@ -39,3 +39,6 @@ model/mev_tax_model_one/volume_path.txt
 .env
 *.swp
 .DS_Store
+
+# Local git worktrees
+.worktrees/

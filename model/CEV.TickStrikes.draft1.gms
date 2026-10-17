@@ -3,9 +3,10 @@ $include instruments/position.gms
 
 $onText
 ==========================================================================
-------------------> CEV STATIC RE STRIKE LATTICE < ---------------------
+------------------> CEV.TickStrikes < ----------------------------------
   Spec: cfmm-vol-markets-spec/spec/models/sets/CEV.md
         (GAMS design section at top; source math below)
+  Model: model/CEV.TickStrikes.draft1.gms
 ==========================================================================
 $offText
 
