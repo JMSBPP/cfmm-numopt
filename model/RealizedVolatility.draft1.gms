@@ -8,7 +8,13 @@ $onText
 TODO: Figure out the way to do this
 include "TickLattice.draft1.gms"
 $offText
+$onText
+==========================================================================
+------------------> PRIMITIVE COORDINATES/INDEXES/SETS < ---------------------
+==============================================================================
+$offText
 
+Set Ticks /200, 400, 600/;
 
 $onText
 ==========================================================================
@@ -21,17 +27,17 @@ GridResolution = 1.0001;
 Scalar TickSpacing;
 TickSpacing = 10;
 
-Set Ticks /200, 400, 600/;
+* \(i = \Delta_i \, \cdot \, \lfloor \, \frac{i}{\Delta_i} \, \rfloor\)
 
-Parameter tickVal(Ticks) /
-    200 200
-    400 400
-    600 600
-/;
 
-* \(i = \Delta_i \, \cdot \, \lfloor \, \frac{i}{\Delta_i} \, \rfloor\)TODO: Missing a math reference
-
+Parameter tickVal(Ticks) /200 200, 400 400, 600 600/;
 tickVal(Ticks) = TickSpacing * floor(tickVal(Ticks) / TickSpacing);
+
+Parameter priceKernel(Ticks);
+Scalar PricingKernelResolution =  power(2, 96);
+priceKernel(Ticks) =
+    (GridResolution) ** (tickVal(Ticks) * TickSpacing / 2)
+    * PricingKernelResolution;
 
 
 $onText
@@ -61,6 +67,7 @@ From cfmm-vol-markets-spec/notes/VOLATILITY_INSTRUMENTS.md, note that
 $offText
 
 *\(\xi^{\star} = \lambda^{-\Delta_i/2}\) ; cfmm-vol-markets-spec/notes/VOLATILITY_INSTRUMENTS.md::L176
+
 Scalar Xi;
 Xi = power(GridResolution,-TickSpacing/2);
 
@@ -214,4 +221,6 @@ $offText
 Set Kappa(Ticks);
 Kappa(Ticks)$(ord(Ticks) > 1) =
     yes$(gammaVal(Ticks) = GammaMultiplier * gammaVal(Ticks-1));
+
+
 
