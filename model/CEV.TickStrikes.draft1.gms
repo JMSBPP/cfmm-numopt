@@ -1,5 +1,5 @@
 $include infra/TickLattice.draft1.gms
-$include instruments/position.gms
+$include kernel/Exposure.gms
 
 $onText
 ==========================================================================
@@ -89,7 +89,7 @@ $onText
 $offText
 
 
-* -------------- \(\Big\{ (i_K, \sigma (i_K), \mu (i_K))\Big\}_{j=1}^{N}\) ------------------------------------
+* -------------- \(\Big\{ (i_K, \sigma (i_K), \mu (i_K))\Big\}_{j=1}^{N_K}\) ------------------------------------
 Set strikeIdx /1*5000/;
 Set TickStrikes(strikeIdx);
 
