@@ -25,3 +25,37 @@
 	   \bigg (W\, ,\, \{i \, (t_j)\}_{j=1}^{N_K} \bigg) \, \overbrace{\leadsto}^{\texttt{TickPathMoments}} \, \Big (\, i_{\mu}, \sigma_{\texttt{RV}}\Big)
 	\end{aligned}
 \]
+
+\[
+	\begin{aligned}
+		\bigg (N_K, \Big\{ (i_K, \sigma (i_K), \mu (i_K))\Big\}_{j=1}^{N_K} \bigg)
+		\, \overbrace{\leadsto}^{\texttt{LiquidityKernel}} \,
+		\Big(
+			\big(\Gamma_{\varphi},\; m_{\Gamma}\big),\;
+			\ell,\;
+			L(i_K),\;
+			L(\Gamma_i)
+		\Big)
+	\end{aligned}
+\]
+
+\[
+	\begin{aligned}
+		\Big(
+			\big(\Gamma_{\varphi},\; m_{\Gamma}\big),\;
+			\ell,\;
+			L(i_K),\;
+			L(\Gamma_i),\;
+			g
+		\Big)
+		\, \overbrace{\leadsto}^{\texttt{StripLengthFromGammaBudget}} \,
+		\big(\iota\big)
+	\end{aligned}
+\]
+
+
+ # TODO
+
+1. Make a big justfile command that compiles all gams files and this goes on CI too
+
+2. Correct the position.gms to be out of instruments and make it on LiquidityKernel.gms
