@@ -4,88 +4,94 @@ $include instruments/position.gms
 $onText
 ==========================================================================
 ------------------> CEV STATIC RE STRIKE LATTICE < ---------------------
-  Spec: docs/superpowers/specs/2026-10-17-cev-re-strike-lattice-design.md
-  Math: cfmm-vol-markets-spec/spec/models/sets/CEV.md
+  Spec: cfmm-vol-markets-spec/spec/models/sets/CEV.md
+        (GAMS design section at top; source math below)
 ==========================================================================
 $offText
 
 $onText
-==========================================================================
-------------------> FLOW / RE INPUTS < ---------------------------------
-==========================================================================
+===============================================================================
+-----------------------------------> INPUTS < ---------------------------------
+===============================================================================
 $offText
 
-* \(\sigma_F\): numeraire net-flow diffusion vol (demo scale so i(σ̄) sits near mid ticks).
+*  --------------->  \(\Big (\sigma_F, \mu_F, [\sigma_l, \sigma_u]\Big )\) < ---------------------
+* \(\sigma_F\):
 Scalar flowDiffusionVol;
 flowDiffusionVol = 5.2e13;
 
-* Flow drift \(\mu_F\) (local drift macro only; not used for set membership).
+* \(\mu_F\) .
 Scalar flowDiffusionDrift /0/;
 
 * Central target / striped vol \(\bar\sigma\) and absolute std → band \(\bar\sigma\pm\mathrm{std}\).
+* \(\sigma_K\)
 Scalar sigmaBar /0.5/;
+* \(\sigma_{\sigma_K}\)
 Scalar sigmaBarStd /0.1/;
-
-$onText
-==========================================================================
-------------------> MACROS < -------------------------------------------
-==========================================================================
-$offText
-
-* \(\alpha = \ln(\sigma_F / (L_{1/2}\,\beta))\), \(\beta = \ln(1.0001)\).
-$macro cevAlpha(sigmaF, L) (log((sigmaF)/((L)*LN_GRID_RESOLUTION)))
-
-* \(i(\sigma) = (\alpha - \ln\sigma)/\beta\).
-$macro cevTickFromVol(sigmaF, L, sigma) toTickSpace(cevAlpha(sigmaF,L) - log(sigma))
-
-* \(\sigma(i) = e^{\alpha - \beta i}\) (price-free local tick vol).
-$macro cevLocalVol(sigmaF, L, tick) (exp(cevAlpha(sigmaF,L) - LN_GRID_RESOLUTION*(tick)))
-
-* \(\sqrt{p} = 1.0001^{i}\) from \(i = \log_{1.0001}\sqrt{p}\).
-$macro cevSqrtP(tick) (power(GRID_RESOLUTION, tick))
-
-* CEVLocalTickDrift: \(\mu(i) = \mu_F/(L\sqrt{p}) - \sigma_F^2/(2 L^2 p)\).
-$macro cevLocalDrift(sigmaF, muF, L, tick) ((muF)/((L)*cevSqrtP(tick)) - power(sigmaF,2)/(2*power(L,2)*power(cevSqrtP(tick),2)))
-
-$onText
-==========================================================================
-------------------> RE STRIKE FACTORY < --------------------------------
-  Band [sigmaBar - std, sigmaBar + std] → i_lo, i_hi → TickSpacing lattice.
-==========================================================================
-$offText
 
 abort$(sigmaBar - sigmaBarStd <= 0)
     'CEV RE lattice: need sigmaBar - sigmaBarStd > 0 for log';
 
-Scalar iLoRaw, iHiRaw, iLo, iHi, nStrikes;
+$onText
+==========================================================================
+------------------------> MACROS < -------------------------------------------
+==========================================================================
+$offText
 
-* Higher vol → lower tick.
-iLoRaw = cevTickFromVol(flowDiffusionVol, VegaNotional, sigmaBar + sigmaBarStd);
-iHiRaw = cevTickFromVol(flowDiffusionVol, VegaNotional, sigmaBar - sigmaBarStd);
+* \(\alpha = \ln(\sigma_F / (L_{1/2}\,\ln(1.0001)))\).
+$macro cevAlpha(sigmaF, L) (log((sigmaF)/((L)*LN_GRID_RESOLUTION)))
 
-iLo = normTickVal(iLoRaw, TickSpacing);
-iHi = normTickVal(iHiRaw, TickSpacing);
+* \(i(\sigma) = (\alpha - \ln\sigma)/ \ln(1.0001)\).
+$macro cevTickFromVol(sigmaF, L, sigma) toTickSpace(cevAlpha(sigmaF,L) - log(sigma))
 
-iLo = max(MIN_TICK, min(MAX_TICK, iLo));
-iHi = max(MIN_TICK, min(MAX_TICK, iHi));
+* \(\sigma(i) = e^{\alpha - \beta i}\) 
+$macro cevLocalVol(sigmaF, L, tick) (exp(cevAlpha(sigmaF,L) - fromTickSpace(tick)))
 
-* Guard snap / clip inversion on a tiny band.
-Scalar iTmp;
-if(iLo > iHi,
-   iTmp = iLo;
-   iLo  = iHi;
-   iHi  = iTmp;
-);
+* \(\mu(i) = \mu_F/(L\sqrt{p}) - \sigma_F^2/(2 L^2 p)\).
+$macro cevLocalDrift(sigmaF, muF, L, tick) ((muF)/((L)*sqrtPriceVal(tick)) - power(sigmaF,2)/(2*power(L,2)*power(sqrtPriceVal(tick),2)))
 
-nStrikes = 1 + (iHi - iLo)/TickSpacing;
+
+
+* \( N_K \, = \, 1 + \frac{\lvert i(\sigma_K- \sigma_{\sigma_K}) - i(\sigma_K+ \sigma_{\sigma_K})\rvert}{\Delta_i} \)
+$macro cevNStrikes(sigmaF, L, sigmaBar, std, spacing) (1 + abs(normTickVal(cevTickFromVol(sigmaF,L,(sigmaBar)-(std)),spacing) - normTickVal(cevTickFromVol(sigmaF,L,(sigmaBar)+(std)),spacing))/(spacing))
+
+$onText
+==========================================================================
+------------------> TICK STRIKE FACTORY < --------------------------------
+==========================================================================
+$offText
+
+
+Scalar iLo, iHi, nStrikes;
+
+
+iLo = normTickVal(cevTickFromVol(flowDiffusionVol, VegaNotional, sigmaBar + sigmaBarStd), TickSpacing);
+iHi = normTickVal(cevTickFromVol(flowDiffusionVol, VegaNotional, sigmaBar - sigmaBarStd), TickSpacing);
+
+
+Scalar iLoRaw, iHiRaw;
+iLoRaw = iLo;
+iHiRaw = iHi;
+iLo = tickBoundLo(iLoRaw, iHiRaw);
+iHi = tickBoundHi(iLoRaw, iHiRaw);
+
+nStrikes = cevNStrikes(flowDiffusionVol, VegaNotional, sigmaBar, sigmaBarStd, TickSpacing);
 
 abort$(nStrikes < 1) 'CEV RE lattice: empty strike set';
 abort$(nStrikes > 5000)
     'CEV RE lattice: nStrikes exceeds strikeIdx capacity (5000)';
 
-* Index universe; Ticks is the dynamic RE support.
+$onText
+=============================================================================
+--------------------------> OUTPUTS <---------------------------------------
+=============================================================================
+$offText
+
+
+* -------------- \(\Big\{ (i_K, \sigma (i_K), \mu (i_K))\Big\}_{j=1}^{N}\) ------------------------------------
 Set strikeIdx /1*5000/;
 Set Ticks(strikeIdx);
+
 Ticks(strikeIdx) = no;
 Ticks(strikeIdx)$(ord(strikeIdx) <= nStrikes) = yes;
 
@@ -104,4 +110,4 @@ localTickDrift(strikeIdx) =
     cevLocalDrift(flowDiffusionVol, flowDiffusionDrift, VegaNotional, tickVal(strikeIdx));
 localTickDrift(strikeIdx)$(not Ticks(strikeIdx)) = 0;
 
-display nStrikes, iLo, iHi, tickVal, localTickVol;
+display nStrikes, iLo, iHi, tickVal, localTickVol, localTickDrift;
