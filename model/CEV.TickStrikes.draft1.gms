@@ -96,19 +96,19 @@ Set TickStrikes(strikeIdx);
 TickStrikes(strikeIdx) = no;
 TickStrikes(strikeIdx)$(ord(strikeIdx) <= nStrikes) = yes;
 
-Parameter tickVal(strikeIdx);
+Parameter tickStrikeVal(strikeIdx);
 * ord must stay on the static universe strikeIdx (not dynamic TickStrikes).
-tickVal(strikeIdx) = iLo + (ord(strikeIdx) - 1)*TickSpacing;
-tickVal(strikeIdx)$(not TickStrikes(strikeIdx)) = 0;
+tickStrikeVal(strikeIdx) = iLo + (ord(strikeIdx) - 1)*TickSpacing;
+tickStrikeVal(strikeIdx)$(not TickStrikes(strikeIdx)) = 0;
 
 Parameter localTickVol(strikeIdx);
 localTickVol(strikeIdx) =
-    cevLocalVol(flowDiffusionVol, VegaNotional, tickVal(strikeIdx));
+    cevLocalVol(flowDiffusionVol, VegaNotional, tickStrikeVal(strikeIdx));
 localTickVol(strikeIdx)$(not TickStrikes(strikeIdx)) = 0;
 
 Parameter localTickDrift(strikeIdx);
 localTickDrift(strikeIdx) =
-    cevLocalDrift(flowDiffusionVol, flowDiffusionDrift, VegaNotional, tickVal(strikeIdx));
+    cevLocalDrift(flowDiffusionVol, flowDiffusionDrift, VegaNotional, tickStrikeVal(strikeIdx));
 localTickDrift(strikeIdx)$(not TickStrikes(strikeIdx)) = 0;
 
-display nStrikes, iLo, iHi, tickVal, localTickVol, localTickDrift;
+display nStrikes, iLo, iHi, tickStrikeVal, localTickVol, localTickDrift;
