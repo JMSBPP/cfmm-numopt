@@ -1,14 +1,15 @@
-$include infra/TickLattice.draft1.gms
-$include kernel/Exposure.gms
+$if not declared GRID_RESOLUTION $include parameters/TickLattice.gms
+$if not declared VegaNotional $include parameters/Exposure.gms
 
 $onText
 ==========================================================================
 ------------------> CEV.TickStrikes < ----------------------------------
   Spec: cfmm-vol-markets-spec/spec/models/sets/CEV.md
-        (GAMS design section at top; source math below)
-  Model: model/CEV.TickStrikes.draft1.gms
+  Path: src/parameters/CEV.TickStrikes.gms
 ==========================================================================
 $offText
+
+$if declared TickStrikes $goto cev_tickstrikes_done
 
 $onText
 ===============================================================================
@@ -112,3 +113,5 @@ localTickDrift(strikeIdx) =
 localTickDrift(strikeIdx)$(not TickStrikes(strikeIdx)) = 0;
 
 display nStrikes, iLo, iHi, tickStrikeVal, localTickVol, localTickDrift;
+
+$label cev_tickstrikes_done

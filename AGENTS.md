@@ -33,7 +33,7 @@ Do not skip step 2. Inform first; fix only on confirmation.
 
 ---
 
-Standing answers for the open questions in `model/RealizedVolatility.draft1.gms`. Sources: [GAMS 54 ordered sets (`ord`, `card`)](https://www.gams.com/54/docs/UG_OrderedSets.html) and [indexed operations](https://www.gams.com/54/docs/UG_Parameters.html).
+Standing GAMS answers for the vol draft under `src/` (kalecky layers). Sources: [GAMS 54 ordered sets (`ord`, `card`)](https://www.gams.com/54/docs/UG_OrderedSets.html) and [indexed operations](https://www.gams.com/54/docs/UG_Parameters.html).
 
 ## Set length
 
@@ -55,7 +55,7 @@ nTicks = card(Ticks);
 meanTick = sum(Ticks, tickVal(Ticks)) / nTicks;
 ```
 
-Set labels are text. The label `200` is not the number 200, so `sum(Ticks, Ticks)` is not legal. Map labels onto a parameter first (`tickVal` in `model/PricingKernel.gms` is the repo pattern: `tickVal(tick) = ord(tick) - 121`). For the literal lattice `/200, 400, 600/`, write that map explicitly; `ord` will not recover 200, 400, 600.
+Set labels are text. The label `200` is not the number 200, so `sum(Ticks, Ticks)` is not legal. Map labels onto a parameter first (repo pattern: `tickVal(tick) = ord(tick) - 121`, or an explicit `/ 200 200, ... /` list). For the literal lattice `/200, 400, 600/`, write that map explicitly; `ord` will not recover 200, 400, 600.
 
 `Parameter TickAverage(Ticks)` stores one value per tick. Assigning the scalar mean to `TickAverage(Ticks)` copies that same mean onto every element. Declare a `Scalar` when one number is the result.
 

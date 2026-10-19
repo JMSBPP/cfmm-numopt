@@ -1,19 +1,19 @@
-$include CEV.TickPath.draft1.gms
+$if not declared TickPath $include parameters/CEV.TickPath.gms
 
 $onText
 ==========================================================================
 ------------------> TickPathMoments < ----------------------------------
   Spec: cfmm-vol-markets-spec/spec/models/sets/TickPathMoments.md
-  Generic mean + RV macros; draft1 path source = CEV.TickPath
-  Formulas: model/RealizedVolatility.draft1.gms (TickAverage / RV)
+  Generic mean + RV macros; path source = parameters/CEV.TickPath.gms
 ==========================================================================
 $offText
+
+$if declared realizedVolatility $goto tickpath_moments_done
 
 $onText
 ===============================================================================
 --------------------------------> INPUTS < -----------------------------------
   Only a tick path: set TickPath and level parameter pathTickVal.
-  (Draft1: supplied by $include CEV.TickPath.draft1.gms)
 ===============================================================================
 $offText
 
@@ -25,7 +25,7 @@ $onText
 ==========================================================================
 $offText
 
-* \(\mu = N^{-1}\sum_t v(t)\)  (cf. TickAverage in RealizedVolatility.draft1.gms)
+* \(\mu = N^{-1}\sum_t v(t)\)
 $macro mean_tickPath(S, v) (sum(S, v(S)) / card(S))
 
 * \(\sigma_{\mathrm{RV}}^{2}\)-style sample second moment: \((N-1)^{-1}\sum_t (v(t)-\mu)^2\)
@@ -50,3 +50,5 @@ meanTickPath = mean_tickPath(TickPath, pathTickVal);
 realizedVolatility = realized_volatility(TickPath, pathTickVal, meanTickPath);
 
 display nPath, meanTickPath, realizedVolatility;
+
+$label tickpath_moments_done
