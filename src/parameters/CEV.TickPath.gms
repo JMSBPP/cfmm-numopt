@@ -1,5 +1,8 @@
 $include "gams-deps.inc"
 $include "%GAMS_EVM_TRANSPORT_SRC%GdxComptimeHandshake.gms"
+$funcLibIn Commands %GAMS_EVM_TRANSPORT_RPC%lib/exec/CommandDispatcher.so
+
+Function broadcast_tick_path /Commands.broadcast_tick_path/;
 
 $onText
 ==========================================================================
@@ -7,10 +10,12 @@ $onText
   Spec: cfmm-vol-markets-spec/spec/models/sets/CEV.TickPath.md
 
   Two-pass hybrid (same file):
-    Pass 1 (no src/build/tickPath.gdx): fill path, gdxWrite, re-invoke GAMS on self.
+    Pass 1 (no src/build/tickPath.gdx): fill path, gdxWrite, $goto tickpath_handoff
+      (broadcast_tick_path path-sidecar → external service; sync).
     Pass 2 (gdx present): $load at compile time, write ACK, stop.
   cwd: project root (as in `just gams …`); idir=src for local includes.
-  Transport: pinned gams-evm-transport via gams-deps (GdxWriter + handshake).
+  Transport utils pin: GdxWriter + handshake (GAMS_EVM_TRANSPORT_SRC).
+  Transport RPC pin: Commands.broadcast_tick_path (GAMS_EVM_TRANSPORT_RPC @ 650d212).
 ==========================================================================
 $offText
 
@@ -28,7 +33,7 @@ $batInclude "%GAMS_EVM_TRANSPORT_SRC%gdxHandshakeWriteAck.gms" src/build/tickPat
 display 'CEV.TickPath pass2: loaded from src/build/tickPath.gdx', pathTickVal;
 $goto cev_tickpath_done
 
-* ---------------------- Pass 1: generate snapshot + re-compile ----------
+* ---------------------- Pass 1: generate snapshot + handoff ----------
 $label tickpath_pass1
 
 $if not declared TickStrikes $include parameters/CEV.TickStrikes.gms
@@ -54,7 +59,7 @@ $onText
 -------------------------> OUTPUTS < ------------------------------
   |TickPath| = nStrikes; step j uses localTickDrift(j), localTickVol(j).
   Δi = toTickSpace(μ)·dt + σ·ΔW,  ΔW = √dt · ε,  ε ~ N(0,1).
-  Snapshot: src/build/tickPath.gdx → pass 2 $load; ACK: src/build/tickPath.ack
+  Snapshot: src/build/tickPath.gdx → tickpath_handoff → broadcast_tick_path
 ==========================================================================
 $offText
 
@@ -82,10 +87,13 @@ loop(strikeIdx$TickStrikes(strikeIdx),
 display Window, dtBar, nStrikes, pathTickVal;
 
 gdxWrite('src/build/tickPath.gdx') TickPath, pathTickVal;
+$goto tickpath_handoff
 
-execute.checkErrorLevel
-   'gams src/parameters/CEV.TickPath.gms action=ce o=src/build/parameters_CEV_TickPath_pass2.lst scrdir=src/build idir=src:%GAMS_EVM_TRANSPORT_SRC% lo=3';
-
-$batInclude "%GAMS_EVM_TRANSPORT_SRC%gdxHandshakeEnsureAck.gms" src/build/tickPath.ack "GdxComptimeHandshake pass1 ACK: src/build/tickPath.gdx written"
+* ---------------------- Handoff: path sidecar + sync broadcast_tick_path ----------
+$label tickpath_handoff
+execute 'printf "%s\n" "src/build/tickPath.gdx" > build/.gdx-publish-path';
+Scalar broadcastStatus;
+broadcastStatus = broadcast_tick_path;
+abort$(broadcastStatus <> 0) 'broadcast_tick_path failed';
 
 $label cev_tickpath_done

@@ -47,3 +47,6 @@ model/mev_tax_model_one/volume_path.txt
 
 # gams-deps pin cache (JMSBPP/gams-deps)
 .cache/gams-deps/
+
+# publishGdx sidecar + local publish-gdx binary (CommandDispatcher.so lives in the RPC pin cache)
+build/

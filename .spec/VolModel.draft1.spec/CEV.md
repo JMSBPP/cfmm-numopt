@@ -60,49 +60,78 @@
 		\quad=\quad G(\iota)\,\sigma_{\texttt{RV}}^{2}
 	\end{aligned}
 \]
-Lock: [`.planning/A1-no-fee-variance-claim.md`](../../.planning/A1-no-fee-variance-claim.md).
 
-----------------
 Then for a single Tx we are engineering this payoff assuming the tick path accrues over the span of a single Tx once we do this we are building the entry point to this
 
 
 \[
-	\begin{aligned}
-	    \bigg (W\, ,\, \{i \, (t_j)\}_{j=1}^{N_K} \bigg) \, \leadsto \, \texttt{Tx}
-	\end{aligned}
-\]
+	\bigg (W\, ,\, \{i \, (t_j)\}_{j=1}^{N_K} \bigg) \, \, \overbrace{\leadsto}^{\texttt{CEV.TickPath.broadcast\_tick\_path}} \, \texttt{Tx}
+	
+\]	
 
-How to write a tick path onto a single transaction ?
+`broadcast_tick_path` has as pre-requirements 
 
-Since a Tx is a sequence of calls it uses MultiCall
+```bash
+just dispatcher
+# → lib/exec/CommandDispatcher.so
+```
 
-BUT The multicall is the end point Tx is to be modelled on Idris-2 first
+### 2. Start Anvil and deploy Tick + Multicaller
+
+```bash
+anvil --port 8545   # leave running
+
+cd evm
+forge script script/DeployTick.s.sol:DeployTick \
+  --rpc-url "${ANVIL_RPC_URL:-http://127.0.0.1:8545}" \
+  --broadcast \
+  --private-key "${ANVIL_PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}" \
+  -vv
+cd ..
+```
+
+Deploy writes `build/anvil-addresses.json` with `TICK_ADDRESS` and `MULTICALLER_ADDRESS`.
+
+```bash
+export ANVIL_RPC_URL="${ANVIL_RPC_URL:-http://127.0.0.1:8545}"
+export TICK_ADDRESS=
+$(python3 -c 'import json;print(json.load(open("build/anvil-addresses.json"))["TICK_ADDRESS"])')
+export MULTICALLER_ADDRESS=$(python3 -c 'import json;print(json.load(open("build/anvil-addresses.json"))["MULTICALLER_ADDRESS"])')
+# optional: ANVIL_FROM (defaults to Anvil account #0)
+```
+The next requirement is to wrap all this on a command line wrapper
+Or can we deploy any tickAddress, multicaller and once pluging them as env it works ?
 
 
-Well, angstrom has utilities for encoding things on a single Tx, but this process goes later. The first thing is running CEV.TickPath.gms produces a parameter tickVal series, we need to pass it to some ordered data structure that can be read by idris and then idris sends it to the multicaller
- 
-Then:
-1. How from a GAMS Set generated internally we can pass the data to Idris2 such that from such data structure we then pass it to a Tx.
-
-> Note that this intended to be atomic meaning from the requirements here we want a single operation that reads the tickVal and then inmediatly writes it to calldataBuffer, such that once the calldataBuffer lenght equals the length of the path it stops and then sends appends to the calldata the selector and sends the call
-
-Done (gams-deps → gams-evm-transport):
-- Pin in `gams-deps.toml` (`GAMS_EVM_TRANSPORT_SRC`); preamble `gams-deps.inc`
-- `CEV.TickPath.gms` imports `GdxComptimeHandshake` (brings `gdxWrite`) from the pin
+Let's see. Having the anvil server up, we have:
 
 
 
 
 
-All $ commands in GAMS are comp-time, meaning once a Set is written internally in gams we need to find a way to once a Set is written on gams sends its data to an external process and that externall process read and acknowledge it received the data.
 
-Then we need to find the best $ option such that one can pass as arg a Set decalration and be able to send it to an external process 
-
+This is, up to now we can build a Tx that writes a tick to a given `address` such that given address exposes the `setTick(int256)` method AND the `readTick()` and theay are read from TSTORE
 
 
-Once the transaction completes \(\pi^{\sigma}_{\text{no fee}}\) is to have been settled 
+However few things are still on they fly, specially for reproducibility. This is we want to call the start of the anvil server and pass an address that is deployed on that server and ask the service to write the Tx on such address for such purpose. 
 
-This is:
+We want the following a command line 
+
+```
+<command> <file-location-ref>
+``
+This file location ref can be of the form of a github gist or a reference to a local file and it must be a plank contract and the command deploys the contract on anvil and sets the enviroment TICK_ADDRESS to the contract deployed and then runs the gams file that triggers the call of that AND returns the Tx has number. The server must remain live
+
+As the golden test example consider this
+
+```
+just tick-path <gist syntax reference to JMSBPP/cfmm-vol-markets branch feat-tick-path> src/TickPath.plk
+```
+
+
+
+
+
 
 \[
 	\begin{aligned}
