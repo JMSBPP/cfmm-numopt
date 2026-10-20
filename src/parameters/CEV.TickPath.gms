@@ -15,7 +15,7 @@ $onText
     Pass 2 (gdx present): $load at compile time, write ACK, stop.
   cwd: project root (as in `just gams …`); idir=src for local includes.
   Transport utils pin: GdxWriter + handshake (GAMS_EVM_TRANSPORT_SRC).
-  Transport RPC pin: Commands.broadcast_tick_path (GAMS_EVM_TRANSPORT_RPC @ 650d212).
+  Transport RPC pin: Commands.broadcast_tick_path (GAMS_EVM_TRANSPORT_RPC @ 1a112ba; APP_ADDRESS).
 ==========================================================================
 $offText
 

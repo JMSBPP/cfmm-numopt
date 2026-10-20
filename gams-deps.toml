@@ -1,15 +1,15 @@
 # Git-pinned GAMS sources. Resolved by PATH binary `gams-deps` (JMSBPP/gams-deps)
 # via gams-deps.inc preamble — no just/make emit step.
-# Track gams-evm-transport main @ 650d212 (broadcast_tick_path + tx hash log).
+# Track gams-evm-transport main @ 1a112ba (APP_ADDRESS).
 
 [[pin]]
 url = "https://github.com/JMSBPP/gams-evm-transport.git"
-commit = "650d212fb782c939368734252bf50ded01404b92"
+commit = "1a112ba7c72250b774478241e246d6cbf9189ef9"
 subdir = "utils"
 global = "GAMS_EVM_TRANSPORT_SRC"
 
 [[pin]]
 url = "https://github.com/JMSBPP/gams-evm-transport.git"
-commit = "650d212fb782c939368734252bf50ded01404b92"
+commit = "1a112ba7c72250b774478241e246d6cbf9189ef9"
 subdir = "."
 global = "GAMS_EVM_TRANSPORT_RPC"

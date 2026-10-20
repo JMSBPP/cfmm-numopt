@@ -27,10 +27,10 @@ broadcast_tick_path:
     mkdir -p src/build build
     # environment.d is in systemd --user; already-open shells (and this recipe)
     # do not re-import it. Fill only unset apply addrs.
-    if [[ -z "${TICK_ADDRESS:-}" || -z "${MULTICALLER_ADDRESS:-}" || -z "${ANVIL_RPC_URL:-}" ]]; then
+    if [[ -z "${APP_ADDRESS:-}" || -z "${MULTICALLER_ADDRESS:-}" || -z "${ANVIL_RPC_URL:-}" ]]; then
       while IFS= read -r line; do
         case "$line" in
-          ANVIL_RPC_URL=*|TICK_ADDRESS=*|MULTICALLER_ADDRESS=*)
+          ANVIL_RPC_URL=*|APP_ADDRESS=*|TICK_ADDRESS=*|MULTICALLER_ADDRESS=*)
             key="${line%%=*}"
             if [[ -z "${!key:-}" ]]; then
               export "$line"
@@ -39,8 +39,12 @@ broadcast_tick_path:
         esac
       done < <(systemctl --user show-environment)
     fi
-    if [[ -z "${TICK_ADDRESS:-}" || -z "${MULTICALLER_ADDRESS:-}" ]]; then
-      echo "just broadcast_tick_path: TICK_ADDRESS / MULTICALLER_ADDRESS unset (not in env or systemd --user)" >&2
+    # Transport 1a112ba reads APP_ADDRESS; map leftover TICK_ADDRESS if needed.
+    if [[ -z "${APP_ADDRESS:-}" && -n "${TICK_ADDRESS:-}" ]]; then
+      export APP_ADDRESS="$TICK_ADDRESS"
+    fi
+    if [[ -z "${APP_ADDRESS:-}" || -z "${MULTICALLER_ADDRESS:-}" ]]; then
+      echo "just broadcast_tick_path: APP_ADDRESS / MULTICALLER_ADDRESS unset (not in env or systemd --user)" >&2
       exit 1
     fi
     gams-deps
