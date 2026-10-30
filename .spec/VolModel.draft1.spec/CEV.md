@@ -65,9 +65,18 @@ Then for a single Tx we are engineering this payoff assuming the tick path accru
 
 
 \[
-	\bigg (W\, ,\, \{i \, (t_j)\}_{j=1}^{N_K} \bigg) \, \, \overbrace{\leadsto}^{\texttt{CEV.TickPath.broadcast\_tick\_path}} \, \texttt{Tx}
-	
+	\begin{aligned}
+		\{i \, (t_j)\}_{j=1}^{N_K} \, \, \overbrace{\leadsto}^{\texttt{CEV.TickPath.broadcast\_tick\_path}} \, \texttt{Tx} \\
+		\\
+		\texttt{Tx}	\, \leadsto \, W \\
+		\\
+		\Big ( W \, (\texttt{Tx})\, , \,\{i \, (t_j)\}_{j=1}^{N_K} \, \Big) \, \overbrace{\leadsto}^{\texttt{TickPathMoments}} \, \Big (\, i_{\mu}, \sigma_{\texttt{RV}}\Big)
+	\end{aligned}
 \]	
+
+
+Let's fix a window W but its constructor can allow for multiple ways to define them
+
 
 \[
 	\begin{aligned}
